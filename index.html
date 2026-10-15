@@ -3549,38 +3549,372 @@
       showToast(`Downloaded .ics calendar for ${st.name}`, 'success');
     }
 
+ // =========================================================
+    // LIVE FORMULA-DRIVEN MULTI-SHEET EXCEL WORKBOOK EXPORT
+    // =========================================================
     function exportToExcelWorkbook() {
-      if (typeof XLSX === 'undefined') { showToast('Excel library loading, try again', 'error'); return; }
-      const wb = XLSX.utils.book_new();
-      const orderedStaff = getSortedAndFilteredStaff(false);
-
-      for (let b = 0; b < 3; b++) {
-        const blockStart = addDaysISO(state.horizonStartDate, b * 28);
-        const dates = Array.from({ length: 28 }, (_, i) => addDaysISO(blockStart, i));
-        const rows = [[
-          'Staff Name', 'NHS Band', 'Skills', 'Role', 'Core', 'Contract Wk Hrs', '4-Wk Target', '4-Wk Planned',
-          ...dates.map(d => `${formatDisplayDate(d)} (${d})`)
-        ]];
-
-        orderedStaff.forEach(st => {
-          let planned = 0;
-          const cells = dates.map(dStr => {
-            const req = state.requests[`${st.id}_${dStr}`];
-            if (req && LEAVE_TYPES[req.type]) { planned += LEAVE_TYPES[req.type].hours; return req.type; }
-            const code = state.assignments[`${st.id}_${dStr}`];
-            if (code) { const sh = getShiftByCode(code); if (sh) planned += Number(sh.hours); return code; }
-            return '';
-          });
-          rows.push([st.name, st.band, (st.competencies || []).join(','), st.role, st.isCore ? 'YES' : 'NO', st.weeklyHours, st.weeklyHours * 4, planned, ...cells]);
-        });
-
-        const wsBlock = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, wsBlock, `Block ${b + 1} (Wks ${b * 4 + 1}-${b * 4 + 4})`);
+      if (typeof XLSX === 'undefined') {
+        showToast('Excel library loading, please try again', 'error');
+        return;
       }
 
-      const fileName = `Hospital_Shift_Roster_${state.horizonStartDate}.xlsx`;
+      const wb = XLSX.utils.book_new();
+      const orderedStaff = getSortedAndFilteredStaff(false);
+      const numStaff = orderedStaff.length;
+      const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      // Helper: Convert 0-based column index to Excel column letter (0 -> A, 25 -> Z, 26 -> AA)
+      const colLtr = (c) => XLSX.utils.encode_col(c);
+
+      // Helper: Convert "HH:MM" string into Excel decimal time fraction (0.0 to 1.0)
+      const timeToExcelDec = (tStr) => {
+        if (!tStr || !tStr.includes(':')) return 0;
+        const [hh, mm] = tStr.split(':').map(Number);
+        return Number((((hh || 0) * 60 + (mm || 0)) / 1440).toFixed(6));
+      };
+
+      // ---------------------------------------------------------
+      // TAB 1: 1_Config_Rules (Shift Lookup Table & WTD Rules)
+      // ---------------------------------------------------------
+      const allShiftDefs = [
+        ...state.shifts.map(s => ({
+          code: s.code, name: s.name, start: s.start, end: s.end,
+          hours: Number(s.hours), category: s.category
+        })),
+        { code: 'AL',   name: 'Annual Leave',      start: '00:00', end: '00:00', hours: 7.5, category: 'LEAVE' },
+        { code: 'SL',   name: 'Study Leave',       start: '00:00', end: '00:00', hours: 7.5, category: 'LEAVE' },
+        { code: 'DO',   name: 'Requested Day Off', start: '00:00', end: '00:00', hours: 0.0, category: 'OFF' },
+        { code: 'SICK', name: 'Sickness Absence',  start: '00:00', end: '00:00', hours: 7.5, category: 'SICK' }
+      ];
+      const shiftTableEndRow = 3 + allShiftDefs.length; // Rows 4 .. shiftTableEndRow
+
+      const configRows = [
+        ['MEDIROSTER CLINICAL SHIFT DEFINITIONS & SAFE-STAFFING RULES', '', '', '', '', '', '', '', 'WARD COVERAGE & WTD RULES', 'VALUE'],
+        ['(Referenced live by formulas across all Roster & Collision tabs)', '', '', '', '', '', '', '', 'Min Rest Between Shifts (Hrs)', state.coverageRules.minRestHours || 11],
+        ['Shift Code', 'Shift Name', 'Start (HH:MM)', 'End (HH:MM)', 'Paid Hours', 'Coverage Category', 'Start (Dec)', 'End (Dec)', 'Weekday Min Day Core', state.coverageRules.minDayCore],
+      ];
+
+      allShiftDefs.forEach((s, idx) => {
+        const rNum = idx + 4;
+        const rightLabel = idx === 0 ? 'Weekday Min Night Core'
+                         : idx === 1 ? 'Weekend Min Day Core'
+                         : idx === 2 ? 'Weekend Min Night Core'
+                         : idx === 3 ? 'Min Senior (Band 6+) Day'
+                         : idx === 4 ? 'Min Senior (Band 6+) Night'
+                         : idx === 5 ? 'Horizon Start Date (Mon)' : '';
+        const rightVal = idx === 0 ? state.coverageRules.minNightCore
+                       : idx === 1 ? state.coverageRules.weekendDayCore
+                       : idx === 2 ? state.coverageRules.weekendNightCore
+                       : idx === 3 ? (state.coverageRules.minSeniorDay || 0)
+                       : idx === 4 ? (state.coverageRules.minSeniorNight || 0)
+                       : idx === 5 ? state.horizonStartDate : '';
+
+        configRows.push([
+          s.code, s.name, s.start, s.end, s.hours, s.category,
+          timeToExcelDec(s.start), timeToExcelDec(s.end),
+          rightLabel, rightVal
+        ]);
+      });
+
+      // Add Separate DayCode & NightCode Helper Lists in Columns L & M for fast COUNTIF array lookups
+      configRows[2][11] = 'DAY_CODES';
+      configRows[2][12] = 'NIGHT_CODES';
+      const dayShiftCodes = state.shifts.filter(s => s.category === 'DAY').map(s => s.code);
+      const nightShiftCodes = state.shifts.filter(s => s.category === 'NIGHT').map(s => s.code);
+      for (let i = 0; i < Math.max(dayShiftCodes.length, nightShiftCodes.length); i++) {
+        if (!configRows[3 + i]) configRows[3 + i] = [];
+        configRows[3 + i][11] = dayShiftCodes[i] || '';
+        configRows[3 + i][12] = nightShiftCodes[i] || '';
+      }
+
+      const wsConfig = XLSX.utils.aoa_to_sheet(configRows);
+      wsConfig['!cols'] = [{ wch: 12 }, { wch: 20 }, { wch: 13 }, { wch: 13 }, { wch: 11 }, { wch: 18 }, { wch: 11 }, { wch: 11 }, { wch: 26 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsConfig, '1_Config_Rules');
+
+      // ---------------------------------------------------------
+      // TAB 2: 2_Staff_Flex (Staff Master & Flexible Agreements)
+      // ---------------------------------------------------------
+      const staffRows = [
+        ['HOSPITAL WARD TEAM, CLINICAL COMPETENCIES & FLEXIBLE WORKING AGREEMENTS'],
+        ['(Referenced live by Roster Planner, Collision Matrix & 12-Week Summary)'],
+        ['Staff ID', 'Staff Name', 'NHS Band', 'Is Senior (B6+)', 'Core Staff', 'Weekly Contract (h)', '4-Wk Target (h)', 'Annual Leave Pot (h)', 'Competencies', 'Flex Pattern Rule', 'Fixed Unavailable Days', 'Max Consecutive', 'Flex Notes']
+      ];
+
+      orderedStaff.forEach((st, idx) => {
+        const r = idx + 4;
+        const offDaysStr = (st.flex.unavailableDays || []).map(d => dNames[d]).join(', ') || 'None';
+        staffRows.push([
+          st.id,
+          st.name,
+          st.band || 'Band 5',
+          { t: 's', f: `IF(OR(C${r}="Band 6",C${r}="Band 7",C${r}="Band 8a"),"YES","NO")`, v: getBandInfo(st.band).isSenior ? 'YES' : 'NO' },
+          st.isCore ? 'YES' : 'NO',
+          st.weeklyHours,
+          { t: 'n', f: `F${r}*4`, v: st.weeklyHours * 4 },
+          st.annualLeaveAllowance || 202.5,
+          (st.competencies || []).join(', '),
+          st.flex.pattern || 'ALL',
+          offDaysStr,
+          st.flex.maxConsecutive || 4,
+          st.flex.note || ''
+        ]);
+      });
+
+      const wsStaff = XLSX.utils.aoa_to_sheet(staffRows);
+      wsStaff['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 35 }];
+      XLSX.utils.book_append_sheet(wb, wsStaff, '2_Staff_Flex');
+
+      // ---------------------------------------------------------
+      // TABS 3, 4, 5: Roster_Block_1..3 + Shadow Collision Matrix
+      // ---------------------------------------------------------
+      const firstStaffRow = 4;
+      const lastStaffRow = firstStaffRow + numStaff - 1;
+      const firstDateCol = 9; // Column J (0-indexed 9) -> J is Day 1, AK is Day 28
+      const lastDateCol = firstDateCol + 27; // Column AK (0-indexed 36)
+      const firstDateLtr = colLtr(firstDateCol);
+      const lastDateLtr = colLtr(lastDateCol);
+
+      for (let b = 0; b < 3; b++) {
+        const blockSheetName = `${b + 3}_Roster_Block_${b + 1}`;
+        const auditSheetName = b === 0 ? `7_Collision_Matrix_B1` : null;
+        const blockStart = addDaysISO(state.horizonStartDate, b * 28);
+        const dates = Array.from({ length: 28 }, (_, i) => addDaysISO(blockStart, i));
+
+        // Row 1: Title & Block Info
+        // Row 2: Day of Week ("Mon", "Tue", ...)
+        // Row 3: Column Headers + Date Strings
+        const row1 = [`BLOCK ${b + 1} ROSTER PLANNER (WEEKS ${b * 4 + 1} TO ${b * 4 + 4}) — EDIT SHIFT CODES IN J4:AK${lastStaffRow} TO RECALCULATE LIVE`];
+        const row2 = ['', '', '', '', '', '', '', '', 'Weekday ->', ...dates.map(d => dNames[parseISODate(d).getDay()])];
+        const row3 = [
+          'Staff Name', 'NHS Band', 'Skills', 'Core', 'Flex Rule', 'Unavailable',
+          '4-Wk Target (h)', '4-Wk Planned (h)', 'Variance (h)',
+          ...dates
+        ];
+
+        const blockAoA = [row1, row2, row3];
+
+        // Staff Rows (Rows 4 .. lastStaffRow)
+        orderedStaff.forEach((st, sIdx) => {
+          const r = firstStaffRow + sIdx;
+          letinitialPlanned = 0;
+
+          const shiftCells = dates.map(dStr => {
+            const req = state.requests[`${st.id}_${dStr}`];
+            if (req && LEAVE_TYPES[req.type]) {
+              letinitialPlanned += LEAVE_TYPES[req.type].hours;
+              return req.type;
+            }
+            const code = state.assignments[`${st.id}_${dStr}`];
+            if (code) {
+              const sh = getShiftByCode(code);
+              if (sh) letinitialPlanned += Number(sh.hours);
+              return code;
+            }
+            return '';
+          });
+
+          const targetHrs = st.weeklyHours * 4;
+          const varianceHrs = Number((letinitialPlanned - targetHrs).toFixed(1));
+
+          // Live Excel Formula for Planned Hours: SUMPRODUCT(SUMIF(ShiftCodes, RowRange, PaidHours))
+          const plannedFormula = `SUMPRODUCT(SUMIF('1_Config_Rules'!$A$4:$A$${shiftTableEndRow}, ${firstDateLtr}${r}:${lastDateLtr}${r}, '1_Config_Rules'!$E$4:$E$${shiftTableEndRow}))`;
+
+          blockAoA.push([
+            { t: 's', f: `'2_Staff_Flex'!B${r}`, v: st.name },
+            { t: 's', f: `'2_Staff_Flex'!C${r}`, v: st.band || 'Band 5' },
+            { t: 's', f: `'2_Staff_Flex'!I${r}`, v: (st.competencies || []).join(', ') },
+            { t: 's', f: `'2_Staff_Flex'!E${r}`, v: st.isCore ? 'YES' : 'NO' },
+            { t: 's', f: `'2_Staff_Flex'!J${r}`, v: st.flex.pattern || 'ALL' },
+            { t: 's', f: `'2_Staff_Flex'!K${r}`, v: (st.flex.unavailableDays || []).map(d => dNames[d]).join(', ') || 'None' },
+            { t: 'n', f: `'2_Staff_Flex'!G${r}`, v: targetHrs },
+            { t: 'n', f: plannedFormula, v: letinitialPlanned },
+            { t: 'n', f: `H${r}-G${r}`, v: varianceHrs },
+            ...shiftCells
+          ]);
+        });
+
+        // Blank separator row (Row lastStaffRow + 1)
+        blockAoA.push([]);
+
+        // Live Coverage Footer Rows:
+        // Row A: Day Core Actual (rDayActual = lastStaffRow + 2)
+        // Row B: Day Core Target (rDayTarget = lastStaffRow + 3)
+        // Row C: Night Core Actual (rNightActual = lastStaffRow + 4)
+        // Row D: Night Core Target (rNightTarget = lastStaffRow + 5)
+        // Row E: Senior Band 6+ Count (rSeniorCount = lastStaffRow + 6)
+        // Row F: Daily Safe-Staffing Status (rStatus = lastStaffRow + 7)
+        const rDayActual   = lastStaffRow + 2;
+        const rDayTarget   = lastStaffRow + 3;
+        const rNightActual = lastStaffRow + 4;
+        const rNightTarget = lastStaffRow + 5;
+        const rSeniorCount = lastStaffRow + 6;
+        const rStatus      = lastStaffRow + 7;
+        const rCollisions  = lastStaffRow + 8;
+
+        const dayCodeLastRow = 3 + Math.max(1, dayShiftCodes.length);
+        const nightCodeLastRow = 3 + Math.max(1, nightShiftCodes.length);
+
+        const rowDayActual   = ['DAY CORE STAFF (ACTUAL)', '', '', '', '', '', '', '', 'Live Count ->'];
+        const rowDayTarget   = ['DAY CORE TARGET', '', '', '', '', '', '', '', 'Target ->'];
+        const rowNightActual = ['NIGHT CORE STAFF (ACTUAL)', '', '', '', '', '', '', '', 'Live Count ->'];
+        const rowNightTarget = ['NIGHT CORE TARGET', '', '', '', '', '', '', '', 'Target ->'];
+        const rowSeniorCount = ['SENIOR BAND 6+ ON SHIFT', '', '', '', '', '', '', '', 'Live B6+ ->'];
+        const rowStatus      = ['SAFE-STAFFING COVERAGE STATUS', '', '', '', '', '', '', '', 'Status ->'];
+        const rowCollisions  = ['SHIFT COLLISIONS / <11H REST BREACHES', '', '', '', '', '', '', '', 'Breaches ->'];
+
+        dates.forEach((dStr, dIdx) => {
+          const cLtr = colLtr(firstDateCol + dIdx);
+          const cov = countDailyCoreCoverage(dStr);
+
+          // Live Formula: Count staff in column where Core="YES" and cell matches a DAY shift code
+          const fDayActual = `SUMPRODUCT(($D$${firstStaffRow}:$D$${lastStaffRow}="YES")*(COUNTIF('1_Config_Rules'!$L$4:$L$${dayCodeLastRow}, ${cLtr}$${firstStaffRow}:${cLtr}$${lastStaffRow})>0))`;
+          const fDayTarget = `IF(OR(${cLtr}$2="Sat",${cLtr}$2="Sun"), '1_Config_Rules'!$J$5, '1_Config_Rules'!$J$3)`;
+
+          const fNightActual = `SUMPRODUCT(($D$${firstStaffRow}:$D$${lastStaffRow}="YES")*(COUNTIF('1_Config_Rules'!$M$4:$M$${nightCodeLastRow}, ${cLtr}$${firstStaffRow}:${cLtr}$${lastStaffRow})>0))`;
+          const fNightTarget = `IF(OR(${cLtr}$2="Sat",${cLtr}$2="Sun"), '1_Config_Rules'!$J$6, '1_Config_Rules'!$J$4)`;
+
+          const fSenior = `SUMPRODUCT(('2_Staff_Flex'!$D$${firstStaffRow}:$D$${lastStaffRow}="YES")*(COUNTIF('1_Config_Rules'!$L$4:$M$${ Math.max(dayCodeLastRow, nightCodeLastRow) }, ${cLtr}$${firstStaffRow}:${cLtr}$${lastStaffRow})>0))`;
+          const fStatus = `IF(AND(${cLtr}${rDayActual}>=${cLtr}${rDayTarget}, ${cLtr}${rNightActual}>=${cLtr}${rNightTarget}), "OK", "SHORTFALL")`;
+
+          rowDayActual.push({ t: 'n', f: fDayActual, v: cov.dayCore });
+          rowDayTarget.push({ t: 'n', f: fDayTarget, v: cov.reqDayCore });
+          rowNightActual.push({ t: 'n', f: fNightActual, v: cov.nightCore });
+          rowNightTarget.push({ t: 'n', f: fNightTarget, v: cov.reqNightCore });
+          rowSeniorCount.push({ t: 'n', f: fSenior, v: cov.seniorDay + cov.seniorNight });
+          rowStatus.push({ t: 's', f: fStatus, v: cov.allOk ? 'OK' : 'SHORTFALL' });
+
+          if (b === 0) {
+            const fColCount = `COUNTIF('7_Collision_Matrix_B1'!${cLtr}$${firstStaffRow}:${cLtr}$${lastStaffRow}, "<>OK")`;
+            rowCollisions.push({ t: 'n', f: fColCount, v: 0 });
+          }
+        });
+
+        blockAoA.push(rowDayActual, rowDayTarget, rowNightActual, rowNightTarget, rowSeniorCount, rowStatus);
+        if (b === 0) blockAoA.push(rowCollisions);
+
+        const wsBlock = XLSX.utils.aoa_to_sheet(blockAoA);
+        wsBlock['!cols'] = [
+          { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 7 }, { wch: 18 }, { wch: 14 },
+          { wch: 14 }, { wch: 14 }, { wch: 12 },
+          ...dates.map(() => ({ wch: 11 }))
+        ];
+        XLSX.utils.book_append_sheet(wb, wsBlock, blockSheetName);
+
+        // Build Tab 7: Live Shadow Collision & 11h WTD Rest Audit Matrix for Block 1
+        if (b === 0 && auditSheetName) {
+          const auditAoA = [
+            ['BLOCK 1 SHADOW COLLISION, <11H WTD REST & FLEXIBLE WORKING AUDIT MATRIX'],
+            ['Evaluates every cell in 3_Roster_Block_1!J4:AK' + lastStaffRow + ' for <11h rest turnarounds, overnight overlaps, and flex rules', '', '', '', '', '', '', '', 'Weekday ->', ...dates.map(d => dNames[parseISODate(d).getDay()])],
+            ['Staff Name', 'NHS Band', 'Skills', 'Core', 'Flex Rule', 'Unavailable', 'Target', 'Planned', 'Total Issues', ...dates]
+          ];
+
+          orderedStaff.forEach((st, sIdx) => {
+            const r = firstStaffRow + sIdx;
+            const auditCells = dates.map((dStr, dIdx) => {
+              const currColLtr = colLtr(firstDateCol + dIdx);
+              const cellRef = `'3_Roster_Block_1'!${currColLtr}${r}`;
+              const dowHeaderRef = `'3_Roster_Block_1'!${currColLtr}$2`;
+
+              // Compute initial evaluation in JS so cached value is accurate on open
+              let cachedStatus = 'OK';
+              const assignedCode = state.assignments[`${st.id}_${dStr}`];
+              if (assignedCode) {
+                const sh = getShiftByCode(assignedCode);
+                if (sh) {
+                  const chk = checkShiftCompatibility(st, sh, dStr, true);
+                  if (!chk.valid) cachedStatus = chk.conflicts[0].type + '_BREACH';
+                }
+              }
+
+              if (dIdx === 0) {
+                // Day 1: Check Fixed Off Day & Flex Pattern
+                const fDay1 = `IF(OR(${cellRef}="",${cellRef}="DO",${cellRef}="AL",${cellRef}="SL",${cellRef}="SICK"),"OK",IF(ISNUMBER(SEARCH(${dowHeaderRef},$F${r})),"FLEX_DAY_BREACH",IF(AND($E${r}="DAY_ONLY",INDEX('1_Config_Rules'!$F$4:$F$${shiftTableEndRow},MATCH(${cellRef},'1_Config_Rules'!$A$4:$A$${shiftTableEndRow},0))="NIGHT"),"FLEX_NIGHT_BREACH","OK")))`;
+                return { t: 's', f: fDay1, v: cachedStatus };
+              } else {
+                // Days 2..28: Check Yesterday's End Time vs Today's Start Time (<11h WTD Rest or Overlap) + Flex Rules
+                const prevColLtr = colLtr(firstDateCol + dIdx - 1);
+                const prevRef = `'3_Roster_Block_1'!${prevColLtr}${r}`;
+                const prevStartLookup = `INDEX('1_Config_Rules'!$G$4:$G$${shiftTableEndRow},MATCH(${prevRef},'1_Config_Rules'!$A$4:$A$${shiftTableEndRow},0))`;
+                const prevEndLookup   = `INDEX('1_Config_Rules'!$H$4:$H$${shiftTableEndRow},MATCH(${prevRef},'1_Config_Rules'!$A$4:$A$${shiftTableEndRow},0))`;
+                const currStartLookup = `INDEX('1_Config_Rules'!$G$4:$G$${shiftTableEndRow},MATCH(${cellRef},'1_Config_Rules'!$A$4:$A$${shiftTableEndRow},0))`;
+
+                // Rest Hours = ((1 + currStart) - (prevEnd + IF(prevEnd<=prevStart, 1, 0))) * 24
+                const restHrsExpr = `((1+${currStartLookup})-(${prevEndLookup}+IF(${prevEndLookup}<=${prevStartLookup},1,0)))*24`;
+
+                const fRestAndFlex = `IF(OR(${cellRef}="",${cellRef}="DO",${cellRef}="AL",${cellRef}="SL",${cellRef}="SICK"),"OK",IF(ISNUMBER(SEARCH(${dowHeaderRef},$F${r})),"FLEX_DAY_BREACH",IF(AND($E${r}="DAY_ONLY",INDEX('1_Config_Rules'!$F$4:$F$${shiftTableEndRow},MATCH(${cellRef},'1_Config_Rules'!$A$4:$A$${shiftTableEndRow},0))="NIGHT"),"FLEX_NIGHT_BREACH",IF(OR(${prevRef}="",${prevRef}="DO",${prevRef}="AL",${prevRef}="SL",${prevRef}="SICK"),"OK",IF(${restHrsExpr}<0,"TIME_OVERLAP",IF(${restHrsExpr}<'1_Config_Rules'!$J$2,"REST_<11H","OK"))))))`;
+                return { t: 's', f: fRestAndFlex, v: cachedStatus };
+              }
+            });
+
+            auditAoA.push([
+              { t: 's', f: `'2_Staff_Flex'!B${r}`, v: st.name },
+              { t: 's', f: `'2_Staff_Flex'!C${r}`, v: st.band || 'Band 5' },
+              { t: 's', f: `'2_Staff_Flex'!I${r}`, v: (st.competencies || []).join(', ') },
+              { t: 's', f: `'2_Staff_Flex'!E${r}`, v: st.isCore ? 'YES' : 'NO' },
+              { t: 's', f: `'2_Staff_Flex'!J${r}`, v: st.flex.pattern || 'ALL' },
+              { t: 's', f: `'2_Staff_Flex'!K${r}`, v: (st.flex.unavailableDays || []).map(d => dNames[d]).join(', ') || 'None' },
+              { t: 'n', f: `'3_Roster_Block_1'!G${r}`, v: st.weeklyHours * 4 },
+              { t: 'n', f: `'3_Roster_Block_1'!H${r}`, v: 0 },
+              { t: 'n', f: `COUNTIF(${firstDateLtr}${r}:${lastDateLtr}${r},"<>OK")`, v: 0 },
+              ...auditCells
+            ]);
+          });
+
+          wb._pendingAuditSheet = { name: auditSheetName, aoa: auditAoA };
+        }
+      }
+
+      // ---------------------------------------------------------
+      // TAB 6: 6_12Wk_Summary (Cross-Block Executive Rollup)
+      // ---------------------------------------------------------
+      const sumRows = [
+        ['12-WEEK (3-MONTH) EXECUTIVE HOURS, VARIANCE & ANNUAL LEAVE ROLLUP'],
+        ['Automatically sums planned hours & Annual Leave across 3_Roster_Block_1, 4_Roster_Block_2, and 5_Roster_Block_3'],
+        ['Staff Name', 'NHS Band', 'Skills', 'Weekly Contract (h)', '12-Wk Target (h)', 'Block 1 Planned (h)', 'Block 2 Planned (h)', 'Block 3 Planned (h)', '12-Wk Total Planned (h)', '12-Wk Variance (h)', 'AL Allowance (h)', 'AL Booked (h)', 'AL Remaining (h)']
+      ];
+
+      orderedStaff.forEach((st, sIdx) => {
+        const r = firstStaffRow + sIdx;
+        const b1Hrs = [0, 1, 2, 3].reduce((acc, w) => acc + getStaffWeekHours(st.id, w), 0);
+        const b2Hrs = [4, 5, 6, 7].reduce((acc, w) => acc + getStaffWeekHours(st.id, w), 0);
+        const b3Hrs = [8, 9, 10, 11].reduce((acc, w) => acc + getStaffWeekHours(st.id, w), 0);
+        const tot12 = b1Hrs + b2Hrs + b3Hrs;
+        const tgt12 = st.weeklyHours * 12;
+
+        const alBookedFormula = `(COUNTIF('3_Roster_Block_1'!${firstDateLtr}${r}:${lastDateLtr}${r},"AL")+COUNTIF('4_Roster_Block_2'!${firstDateLtr}${r}:${lastDateLtr}${r},"AL")+COUNTIF('5_Roster_Block_3'!${firstDateLtr}${r}:${lastDateLtr}${r},"AL"))*7.5`;
+
+        sumRows.push([
+          { t: 's', f: `'2_Staff_Flex'!B${r}`, v: st.name },
+          { t: 's', f: `'2_Staff_Flex'!C${r}`, v: st.band || 'Band 5' },
+          { t: 's', f: `'2_Staff_Flex'!I${r}`, v: (st.competencies || []).join(', ') },
+          { t: 'n', f: `'2_Staff_Flex'!F${r}`, v: st.weeklyHours },
+          { t: 'n', f: `D${r}*12`, v: tgt12 },
+          { t: 'n', f: `'3_Roster_Block_1'!H${r}`, v: b1Hrs },
+          { t: 'n', f: `'4_Roster_Block_2'!H${r}`, v: b2Hrs },
+          { t: 'n', f: `'5_Roster_Block_3'!H${r}`, v: b3Hrs },
+          { t: 'n', f: `SUM(F${r}:H${r})`, v: tot12 },
+          { t: 'n', f: `I${r}-E${r}`, v: Number((tot12 - tgt12).toFixed(1)) },
+          { t: 'n', f: `'2_Staff_Flex'!H${r}`, v: st.annualLeaveAllowance || 202.5 },
+          { t: 'n', f: alBookedFormula, v: 0 },
+          { t: 'n', f: `K${r}-L${r}`, v: st.annualLeaveAllowance || 202.5 }
+        ]);
+      });
+
+      const wsSum = XLSX.utils.aoa_to_sheet(sumRows);
+      wsSum['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 15 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, wsSum, '6_12Wk_Summary');
+
+      // Append Tab 7: Shadow Collision Matrix
+      if (wb._pendingAuditSheet) {
+        const wsAudit = XLSX.utils.aoa_to_sheet(wb._pendingAuditSheet.aoa);
+        wsAudit['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 7 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, ...Array.from({ length: 28 }, () => ({ wch: 14 }))];
+        XLSX.utils.book_append_sheet(wb, wsAudit, wb._pendingAuditSheet.name);
+        delete wb._pendingAuditSheet;
+      }
+
+      const fileName = `MediRoster_Live_Model_${state.horizonStartDate}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      showToast(`Exported Excel workbook: ${fileName}`, 'success');
+      showToast(`Exported Live Formula Excel Model: ${fileName}`, 'success');
     }
 
     function exportJsonBackup() {
