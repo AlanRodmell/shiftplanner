@@ -62,7 +62,7 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-lg sm:text-xl font-bold tracking-tight">MediRoster <span class="font-normal text-blue-200 text-sm">Acute Ward e-Rostering Suite</span></h1>
-            <span class="hidden sm:inline-block text-[11px] uppercase tracking-wider font-semibold bg-emerald-500/30 border border-emerald-300/40 px-2 py-0.5 rounded-full text-emerald-100">v3.0 Clinical + Cloud</span>
+            <span class="hidden sm:inline-block text-[11px] uppercase tracking-wider font-semibold bg-emerald-500/30 border border-emerald-300/40 px-2 py-0.5 rounded-full text-emerald-100">v3.1 Cloud Connected</span>
           </div>
           <p class="text-xs text-blue-200 hidden sm:block">12-Week Horizon • Shift Collision & 11h Rest Engine • Clinical Competencies • Bank/Swaps • Firebase Sync</p>
         </div>
@@ -72,9 +72,9 @@
       <div class="flex flex-wrap items-center gap-2">
         <!-- Firebase Cloud Sync & Auth Status Button -->
         <button onclick="openFirebaseModal()" id="firebase-status-btn" class="bg-blue-900/90 hover:bg-blue-800 text-blue-100 border border-blue-500/40 font-semibold text-xs sm:text-sm px-3 py-2 rounded-lg shadow-xs flex items-center gap-2 transition">
-          <span id="firebase-status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+          <span id="firebase-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
           <i class="fa-solid fa-cloud"></i>
-          <span id="firebase-status-text">Cloud Sync: Local</span>
+          <span id="firebase-status-text">Firebase Ready (Sign In)</span>
         </button>
 
         <button onclick="openAutoScheduleModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow flex items-center gap-2 transition">
@@ -206,12 +206,10 @@
     <!-- TAB 1: 4-WEEK ROSTER PLANNER               -->
     <!-- ========================================== -->
     <section id="tab-roster" class="space-y-4">
-      <!-- Legend, Band Sort, Competency Filter & Lock Bar -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-1.5" id="shift-legend-bar"></div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Roster Publication Status Toggle -->
           <button onclick="toggleBlockLock()" id="roster-lock-btn" class="text-xs font-bold px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition"></button>
 
           <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
@@ -251,7 +249,6 @@
         </div>
       </div>
 
-      <!-- Roster Table Wrapper -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="roster-scroll overflow-x-auto">
           <table class="w-full border-collapse text-left">
@@ -285,7 +282,6 @@
     <!-- ========================================== -->
     <section id="tab-swaps" class="hidden space-y-5">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <!-- Left: Pre-Validated Peer-to-Peer Shift Swap Engine -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <div class="flex items-center gap-2.5">
@@ -327,21 +323,18 @@
             </div>
           </div>
 
-          <!-- Live Swap Validation Output -->
           <div id="swap-validation-box" class="p-3.5 rounded-xl border text-xs space-y-1.5"></div>
 
           <button onclick="executeValidatedSwap()" id="swap-exec-btn" class="w-full bg-nhs-blue hover:bg-nhs-dark text-white font-bold py-2.5 rounded-lg text-xs shadow transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-check-double"></i> Approve & Execute Shift Swap
           </button>
 
-          <!-- Recent Swap History -->
           <div class="pt-3 border-t border-slate-100 space-y-2">
             <div class="text-xs font-bold text-slate-600 uppercase tracking-wider">Recent Approved Shift Swaps</div>
             <div id="swap-history-list" class="space-y-1.5 text-xs max-h-40 overflow-y-auto"></div>
           </div>
         </div>
 
-        <!-- Right: Open Bank Shifts & Sickness Backfill Marketplace -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div class="flex items-center gap-2.5">
@@ -545,10 +538,8 @@
     <!-- TAB 6: REPORTS, FAIRNESS & COLLISION AUDIT -->
     <!-- ========================================== -->
     <section id="tab-reports" class="hidden space-y-5">
-      <!-- KPI Summary Cards -->
       <div id="report-kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
-      <!-- Shift Collision & WTD Rest Breach Audit Log -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -563,7 +554,6 @@
         <div id="report-collision-list" class="space-y-2 text-xs"></div>
       </div>
 
-      <!-- Staff Contracted vs Planned Hours + Fairness & Unsocial Enhancements Table -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -595,7 +585,6 @@
         </div>
       </div>
 
-      <!-- Daily Coverage Audit Log -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
         <h3 class="text-sm font-bold text-slate-800">Daily Safe-Staffing & Clinical Skill-Mix Audit (28 Days in Block)</h3>
         <div id="report-coverage-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 text-xs"></div>
@@ -618,10 +607,7 @@
       </div>
 
       <div class="p-5 space-y-4 text-xs sm:text-sm max-h-[82vh] overflow-y-auto">
-        <!-- Adjacent Day Context & Active Collision Banner -->
         <div id="cell-modal-adjacent-banner" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5"></div>
-
-        <!-- Flexible Working Agreement Notice -->
         <div id="cell-modal-flex-banner" class="bg-blue-50/50 border border-blue-200 rounded-xl p-3 text-xs space-y-1"></div>
 
         <div>
@@ -645,7 +631,7 @@
               <span class="text-[10px] font-normal">Study Leave (7.5h)</span>
             </button>
             <button onclick="markCellSickAndBroadcastBank()" class="border border-red-300 bg-red-100 hover:bg-red-200 text-red-900 font-bold py-2 px-2 rounded-xl text-xs flex flex-col items-center">
-              <span><i class="fa-solid fa-Notes-medical mr-1"></i>SICK</span>
+              <span><i class="fa-solid fa-notes-medical mr-1"></i>SICK</span>
               <span class="text-[10px] font-normal">+ Push to Bank</span>
             </button>
           </div>
@@ -726,7 +712,6 @@
           </div>
         </div>
 
-        <!-- Clinical Competencies Section -->
         <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 space-y-2">
           <div class="font-bold text-emerald-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
             <i class="fa-solid fa-stethoscope text-emerald-600"></i> Clinical Competencies & Sign-Offs
@@ -829,7 +814,7 @@
             <li>Respects all logged <strong>Day Off (DO)</strong>, <strong>Annual Leave (AL)</strong>, <strong>Study Leave (SL)</strong> & <strong>Sickness (SICK)</strong>.</li>
             <li>Enforces every staff member's <strong>Flexible Working Agreement</strong>.</li>
             <li><strong>Zero Shift Collisions & WTD Rest Protection:</strong> Blocks any overlapping clock times or turnarounds under <strong><span id="auto-modal-rest-min">11</span>h rest</strong>.</li>
-            <li>Prioritises daily <strong>Core Day (<span id="auto-modal-day-min">3</span>)</strong>, <strong>Core Night (<span id="auto-modal-night-min">2</span>)</strong>, <strong>NIC/IV Competencies</strong>, and equitable weekend distribution.</li>
+            <li>Prioritises daily <strong>Core Day (<span id="auto-modal-day-min">3</span>)</strong>, <strong>Core Night (<span id="auto-modal-night-min">2</span>)</strong>, and <strong>NIC/IV Competencies</strong>.</li>
           </ul>
         </div>
 
@@ -997,7 +982,7 @@
           <i class="fa-solid fa-cloud-bolt text-amber-400 text-lg"></i>
           <div>
             <h3 class="text-sm font-bold">Firebase User Login & Centralised Cloud Sync</h3>
-            <p class="text-xs text-blue-200">Real-time multi-user Firestore synchronisation & Authentication</p>
+            <p class="text-xs text-blue-200">Pre-configured for project: <strong>shiftplanner-59a01</strong></p>
           </div>
         </div>
         <button onclick="closeFirebaseModal()" class="text-blue-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
@@ -1006,10 +991,10 @@
       <div class="p-5 space-y-5 text-xs sm:text-sm max-h-[84vh] overflow-y-auto">
         <div id="fb-modal-status-banner" class="p-3.5 rounded-xl border bg-slate-50 border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-2.5">
-            <span id="fb-modal-dot" class="w-3 h-3 rounded-full bg-slate-400"></span>
+            <span id="fb-modal-dot" class="w-3 h-3 rounded-full bg-amber-500"></span>
             <div>
-              <div id="fb-modal-status-title" class="font-bold text-slate-800">Local Browser Storage Mode</div>
-              <div id="fb-modal-status-sub" class="text-xs text-slate-500">Connect your Firebase project below to enable centralised cloud sync</div>
+              <div id="fb-modal-status-title" class="font-bold text-slate-800">Firebase Connected (shiftplanner-59a01)</div>
+              <div id="fb-modal-status-sub" class="text-xs text-slate-500">Sign in on the right panel to start real-time Firestore sync</div>
             </div>
           </div>
           <div id="fb-signed-in-actions" class="hidden flex items-center gap-2">
@@ -1026,18 +1011,18 @@
           <div class="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50">
             <div class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center justify-between">
               <span>1. Firebase Project Configuration</span>
-              <button type="button" onclick="clearFirebaseConfig()" class="text-[11px] text-rose-600 hover:underline font-normal">Disconnect</button>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Pre-Loaded</span>
             </div>
             <div>
               <label class="block text-[11px] font-semibold text-slate-600 mb-1">Shared Ward / Workspace ID (Firestore Document Key)</label>
               <input type="text" id="fb-workspace-id" value="acute-ward-4b" placeholder="e.g. acute-ward-4b" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-xs bg-white" />
             </div>
             <div>
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Paste Firebase Web Config JSON (from Firebase Console)</label>
-              <textarea id="fb-config-json" rows="6" placeholder='{"apiKey": "AIza...", "authDomain": "your-app.firebaseapp.com", "projectId": "your-app"}' class="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] bg-white focus:ring-2 focus:ring-nhs-blue focus:outline-none"></textarea>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Firebase Web Config JSON</label>
+              <textarea id="fb-config-json" rows="6" class="w-full border border-slate-300 rounded-lg p-2.5 font-mono text-[11px] bg-white focus:ring-2 focus:ring-nhs-blue focus:outline-none"></textarea>
             </div>
             <button type="button" onclick="saveAndInitFirebaseConfig()" class="w-full bg-nhs-dark hover:bg-nhs-blue text-white font-semibold py-2 rounded-lg text-xs shadow transition">
-              <i class="fa-solid fa-plug mr-1"></i>Save Config & Connect Firebase
+              <i class="fa-solid fa-plug mr-1"></i>Update Workspace / Reconnect
             </button>
           </div>
 
@@ -1051,7 +1036,7 @@
                 <input type="email" id="fb-auth-email" placeholder="matron@nhs.net" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white" />
               </div>
               <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Password</label>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Password (min 6 chars)</label>
                 <input type="password" id="fb-auth-password" placeholder="••••••••" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white" />
               </div>
 
@@ -1092,7 +1077,7 @@
         <button onclick="closeIcsExportModal()" class="text-indigo-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="p-5 space-y-4 text-xs sm:text-sm">
-        <p class="text-xs text-slate-600">Download an iCalendar (`.ics`) file containing all planned working shifts and approved leave across the 12-week horizon for Apple Calendar, Google Calendar, or Outlook.</p>
+        <p class="text-xs text-slate-600">Download an iCalendar (`.ics`) file containing all planned working shifts across the 12-week horizon for Apple Calendar, Google Calendar, or Outlook.</p>
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Select Staff Member</label>
           <select id="ics-staff-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 font-semibold"></select>
@@ -1135,6 +1120,17 @@
   <script>
     const STORAGE_KEY = 'MEDIROSTER_HOSPITAL_POC_V3';
     const FB_CONFIG_STORAGE_KEY = 'MEDIROSTER_FIREBASE_CONFIG_V1';
+
+    // Baked-in Firebase Configuration for shiftplanner-59a01
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyD09kFtfYm2c0LXp3N99StM3n61gMz1Wag",
+      authDomain: "shiftplanner-59a01.firebaseapp.com",
+      projectId: "shiftplanner-59a01",
+      storageBucket: "shiftplanner-59a01.firebasestorage.app",
+      messagingSenderId: "518490099245",
+      appId: "1:518490099245:web:f1387a70cd774dfb5932a4",
+      measurementId: "G-CV0HR10YMK"
+    };
 
     const COLOR_THEMES = {
       blue:   { bg: 'bg-blue-100',   text: 'text-blue-900',   border: 'border-blue-300',   pill: 'bg-blue-600' },
@@ -1193,14 +1189,8 @@
       rosterBandFilter: 'ALL',
       lockedBlocks: { 0: false, 1: false, 2: false },
       coverageRules: {
-        minDayCore: 3,
-        minNightCore: 2,
-        weekendDayCore: 3,
-        weekendNightCore: 2,
-        minSeniorDay: 1,
-        minSeniorNight: 0,
-        minRestHours: 11,
-        maxWtdWeeklyHours: 48,
+        minDayCore: 3, minNightCore: 2, weekendDayCore: 3, weekendNightCore: 2,
+        minSeniorDay: 1, minSeniorNight: 0, minRestHours: 11, maxWtdWeeklyHours: 48,
         perDay: {
           1: { day: 3, night: 2 }, 2: { day: 3, night: 2 }, 3: { day: 3, night: 2 },
           4: { day: 3, night: 2 }, 5: { day: 3, night: 2 }, 6: { day: 3, night: 2 }, 0: { day: 3, night: 2 }
@@ -1210,8 +1200,8 @@
       staff: [],
       requests: {},
       assignments: {},
-      openBankShifts: [], // { id, dateStr, shiftCode, reason, claimedByStaffId }
-      swapHistory: []     // { id, timestamp, staffAName, dateA, shiftA, staffBName, dateB, shiftB }
+      openBankShifts: [],
+      swapHistory: []
     };
 
     let activeCellContext = null;
@@ -1227,15 +1217,27 @@
     function initFirebaseFromSavedConfig() {
       try {
         const raw = localStorage.getItem(FB_CONFIG_STORAGE_KEY);
-        if (!raw) { updateFirebaseStatusUI(); return; }
-        const saved = JSON.parse(raw);
-        if (saved && saved.config && saved.config.apiKey) {
-          fbWorkspaceId = saved.workspaceId || 'acute-ward-4b';
-          document.getElementById('fb-workspace-id').value = fbWorkspaceId;
-          document.getElementById('fb-config-json').value = JSON.stringify(saved.config, null, 2);
-          connectFirebaseInstance(saved.config, fbWorkspaceId, false);
+        let configToUse = DEFAULT_FIREBASE_CONFIG;
+        let workspaceToUse = 'acute-ward-4b';
+
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved && saved.config && saved.config.apiKey) {
+            configToUse = saved.config;
+            workspaceToUse = saved.workspaceId || 'acute-ward-4b';
+          }
         }
-      } catch (e) { console.warn('Could not auto-initialize Firebase config:', e); }
+
+        fbWorkspaceId = workspaceToUse;
+        const wsInput = document.getElementById('fb-workspace-id');
+        const cfgInput = document.getElementById('fb-config-json');
+        if (wsInput) wsInput.value = fbWorkspaceId;
+        if (cfgInput) cfgInput.value = JSON.stringify(configToUse, null, 2);
+
+        connectFirebaseInstance(configToUse, fbWorkspaceId, false);
+      } catch (e) {
+        console.warn('Could not auto-initialize Firebase config:', e);
+      }
       updateFirebaseStatusUI();
     }
 
@@ -1254,7 +1256,7 @@
           updateFirebaseStatusUI();
         });
 
-        if (showFeedback) showToast(`Connected to Firebase project "${configObj.projectId}". Sign in to sync.`, 'success');
+        if (showFeedback) showToast(`Connected to Firebase project "${configObj.projectId}". Sign in on Step 2 to sync.`, 'success');
       } catch (err) {
         if (showFeedback) showToast('Firebase init error: ' + err.message, 'error');
       }
@@ -1341,15 +1343,15 @@
         dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
         txt.textContent = 'Firebase Ready (Sign In)';
         mDot.className = 'w-3 h-3 rounded-full bg-amber-500';
-        mTitle.textContent = 'Firebase Configured — Awaiting User Sign-In';
-        mSub.textContent = 'Sign in on the right panel to start real-time Firestore sync';
+        mTitle.textContent = 'Firebase Connected (shiftplanner-59a01) — Awaiting Login';
+        mSub.textContent = 'Sign in on Step 2 (Right Panel) to start real-time Firestore sync';
         actions.classList.add('hidden');
       } else {
         dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
         txt.textContent = 'Cloud Sync: Local';
         mDot.className = 'w-3 h-3 rounded-full bg-slate-400';
         mTitle.textContent = 'Local Browser Storage Mode';
-        mSub.textContent = 'Paste your Firebase Web Config JSON below to enable centralised multi-user sync';
+        mSub.textContent = 'Click Update Workspace / Reconnect to connect Firebase';
         actions.classList.add('hidden');
       }
     }
@@ -1363,28 +1365,47 @@
       const modal = document.getElementById('firebase-modal');
       modal.classList.add('hidden'); modal.classList.remove('flex');
     }
+
     function saveAndInitFirebaseConfig() {
-      const rawJson = document.getElementById('fb-config-json').value.trim();
+      const rawInput = document.getElementById('fb-config-json').value.trim();
       const workspaceId = document.getElementById('fb-workspace-id').value.trim() || 'acute-ward-4b';
-      if (!rawJson) { showToast('Please paste your Firebase configuration JSON', 'error'); return; }
-      try {
-        const cleaned = rawJson.replace(/const\s+firebaseConfig\s*=\s*/, '').replace(/;$/, '').replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":').replace(/'/g, '"');
-        const config = JSON.parse(cleaned);
-        if (!config.apiKey || !config.projectId) { showToast('Config must include apiKey and projectId', 'error'); return; }
-        localStorage.setItem(FB_CONFIG_STORAGE_KEY, JSON.stringify({ config, workspaceId }));
-        connectFirebaseInstance(config, workspaceId, true);
-      } catch (e) { showToast('Invalid JSON format. Check your Firebase config object.', 'error'); }
+      const configToSave = DEFAULT_FIREBASE_CONFIG;
+
+      if (rawInput) {
+        try {
+          const normalized = rawInput
+            .replace(/[\u00A0\u2000-\u200B]/g, ' ')
+            .replace(/^(const|let|var)\s+\w+\s*=\s*/, '')
+            .replace(/;$/, '')
+            .trim();
+
+          let parsed;
+          try {
+            parsed = JSON.parse(normalized);
+          } catch (_) {
+            const fixedJson = normalized
+              .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+              .replace(/,\s*}/g, '}');
+            parsed = JSON.parse(fixedJson);
+          }
+          if (parsed && parsed.apiKey && parsed.projectId) {
+            localStorage.setItem(FB_CONFIG_STORAGE_KEY, JSON.stringify({ config: parsed, workspaceId }));
+            document.getElementById('fb-config-json').value = JSON.stringify(parsed, null, 2);
+            connectFirebaseInstance(parsed, workspaceId, true);
+            return;
+          }
+        } catch (e) {
+          // Fall back to baked-in DEFAULT_FIREBASE_CONFIG if user input had syntax issues
+        }
+      }
+
+      localStorage.setItem(FB_CONFIG_STORAGE_KEY, JSON.stringify({ config: configToSave, workspaceId }));
+      document.getElementById('fb-config-json').value = JSON.stringify(configToSave, null, 2);
+      connectFirebaseInstance(configToSave, workspaceId, true);
     }
-    function clearFirebaseConfig() {
-      localStorage.removeItem(FB_CONFIG_STORAGE_KEY);
-      if (fbUnsubscribeSnapshot) fbUnsubscribeSnapshot();
-      fbUnsubscribeSnapshot = null; fbUser = null; fbApp = null;
-      document.getElementById('fb-config-json').value = '';
-      updateFirebaseStatusUI();
-      showToast('Disconnected Firebase Cloud Sync', 'info');
-    }
+
     function handleFirebaseEmailAuth(mode) {
-      if (!fbAuth) { showToast('Save & Connect your Firebase Config first (Step 1)', 'error'); return; }
+      if (!fbAuth) { connectFirebaseInstance(DEFAULT_FIREBASE_CONFIG, fbWorkspaceId, false); }
       const email = document.getElementById('fb-auth-email').value.trim();
       const pass = document.getElementById('fb-auth-password').value;
       if (!email || !pass) { showToast('Enter both email and password', 'error'); return; }
@@ -1392,13 +1413,13 @@
       act.then(() => { showToast(`Signed in as ${email}`, 'success'); updateFirebaseStatusUI(); }).catch(err => showToast(err.message, 'error'));
     }
     function handleFirebaseGoogleLogin() {
-      if (!fbAuth) { showToast('Save & Connect your Firebase Config first (Step 1)', 'error'); return; }
+      if (!fbAuth) { connectFirebaseInstance(DEFAULT_FIREBASE_CONFIG, fbWorkspaceId, false); }
       fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
         .then(res => { showToast(`Signed in (${res.user.email})`, 'success'); updateFirebaseStatusUI(); })
         .catch(err => showToast(err.message, 'error'));
     }
     function handleFirebaseAnonLogin() {
-      if (!fbAuth) { showToast('Save & Connect your Firebase Config first (Step 1)', 'error'); return; }
+      if (!fbAuth) { connectFirebaseInstance(DEFAULT_FIREBASE_CONFIG, fbWorkspaceId, false); }
       fbAuth.signInAnonymously().then(() => { showToast('Signed in anonymously to Cloud Firestore', 'success'); updateFirebaseStatusUI(); }).catch(err => showToast(err.message, 'error'));
     }
     function handleFirebaseSignOut() {
@@ -1615,7 +1636,6 @@
       return total;
     }
 
-    // Default Hospital Data with Clinical Competencies & Open Bank Shifts
     function createDefaultHospitalData() {
       const startMon = getNextMondayStr();
       state.horizonStartDate = startMon;
@@ -1861,9 +1881,6 @@
       return compatible[0];
     }
 
-    // =========================================================
-    // SMART AUTO-SUGGEST SHIFT ENGINE
-    // =========================================================
     function autoSuggestWeeks(startWeekIdx, endWeekIdx, overwriteExisting = true) {
       let shiftsAssignedCount = 0;
 
@@ -1877,7 +1894,6 @@
           }
         }
 
-        // Step 1: Core Night Coverage
         for (let d = 0; d < 7; d++) {
           const dateStr = addDaysISO(weekStart, d);
           const reqCov = getRequiredCoverageForDate(dateStr);
@@ -1911,7 +1927,6 @@
           }
         }
 
-        // Step 2: Core Day Coverage
         for (let d = 0; d < 7; d++) {
           const dateStr = addDaysISO(weekStart, d);
           const reqCov = getRequiredCoverageForDate(dateStr);
@@ -1943,7 +1958,6 @@
           }
         }
 
-        // Step 3: Fill remaining contracted hours
         state.staff.forEach(st => {
           const dayOrder = [0, 1, 2, 3, 4, 5, 6].sort((a, b) => {
             return countDailyCoreCoverage(addDaysISO(weekStart, a)).totalStaff - countDailyCoreCoverage(addDaysISO(weekStart, b)).totalStaff;
@@ -2403,9 +2417,6 @@
       return parts.join(' • ') || 'Standard';
     }
 
-    // =========================================================
-    // TAB 2: STAFF, SKILLS & FLEXIBLE WORKING RENDERING
-    // =========================================================
     function renderStaffTab() {
       const grid = document.getElementById('staff-cards-grid');
       const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -2417,7 +2428,6 @@
           ? st.flex.unavailableDays.map(d => dNames[d]).join(', ')
           : 'None';
 
-        // Calculate used Annual Leave hours across 12 weeks
         const alUsedHrs = Object.values(state.requests)
           .filter(r => r.staffId === st.id && r.type === 'AL')
           .length * 7.5;
@@ -2494,9 +2504,6 @@
       }).join('');
     }
 
-    // =========================================================
-    // TAB 3: SWAPS & OPEN BANK SHIFT MARKETPLACE
-    // =========================================================
     function renderSwapsAndBankTab() {
       const selA = document.getElementById('swap-staff-a');
       const selB = document.getElementById('swap-staff-b');
@@ -2518,7 +2525,6 @@
 
       previewShiftSwap();
 
-      // Render Swap History
       const histEl = document.getElementById('swap-history-list');
       if (histEl) {
         if (!state.swapHistory || state.swapHistory.length === 0) {
@@ -2533,7 +2539,6 @@
         }
       }
 
-      // Render Open Bank Shifts
       const bankListEl = document.getElementById('open-bank-shifts-list');
       if (!bankListEl) return;
 
@@ -2550,7 +2555,6 @@
         const sh = getShiftByCode(bs.shiftCode) || { code: bs.shiftCode, name: bs.shiftCode, start: '07:00', end: '19:30', hours: 11.5 };
         const claimedStaff = bs.claimedByStaffId ? state.staff.find(s => s.id === bs.claimedByStaffId) : null;
 
-        // Find eligible staff who are OFF on bs.dateStr and pass collision check
         const eligibleStaff = state.staff.filter(st => {
           if (state.assignments[`${st.id}_${bs.dateStr}`] || state.requests[`${st.id}_${bs.dateStr}`]) return false;
           return checkShiftCompatibility(st, sh, bs.dateStr, true).valid;
@@ -2616,7 +2620,6 @@
         return;
       }
 
-      // Simulate post-swap assignment map
       const simMap = { ...state.assignments };
       delete simMap[`${staffAId}_${dateA}`];
       delete simMap[`${staffBId}_${dateB}`];
@@ -2671,8 +2674,7 @@
         staffBName: stB.name, dateB, shiftB: codeB || 'OFF'
       });
 
-      saveState();
-      renderAll();
+      saveState(); renderAll();
       showToast(`Swapped shifts between ${stA.name} and ${stB.name}`, 'success');
     }
 
@@ -2709,8 +2711,7 @@
           }
         }
       }
-      saveState();
-      renderAll();
+      saveState(); renderAll();
       showToast(added > 0 ? `Broadcast ${added} new Open Bank Shift(s) for shortfalls` : 'All 28 days in block meet Core targets!', added > 0 ? 'info' : 'success');
     }
 
@@ -2723,20 +2724,15 @@
       const st = state.staff.find(s => s.id === staffId);
       bs.claimedByStaffId = staffId;
       state.assignments[`${staffId}_${bs.dateStr}`] = bs.shiftCode;
-      saveState();
-      renderAll();
+      saveState(); renderAll();
       showToast(`${st ? st.name : 'Staff'} claimed Bank Shift ${bs.shiftCode} on ${bs.dateStr}`, 'success');
     }
 
     function removeBankShift(bankId) {
       state.openBankShifts = state.openBankShifts.filter(b => b.id !== bankId);
-      saveState();
-      renderAll();
+      saveState(); renderAll();
     }
 
-    // =========================================================
-    // TAB 4: LEAVE & SICKNESS REQUESTS RENDERING
-    // =========================================================
     function renderRequestsTab() {
       const staffSelect = document.getElementById('req-staff-id');
       staffSelect.innerHTML = state.staff.map(s => `<option value="${s.id}">${s.name} (${s.band || 'Band 5'})</option>`).join('');
@@ -2779,9 +2775,6 @@
       }).join('');
     }
 
-    // =========================================================
-    // TAB 5: SHIFT PATTERNS CRUD RENDERING
-    // =========================================================
     function renderShiftsTab() {
       const container = document.getElementById('shift-patterns-list');
       container.innerHTML = state.shifts.map(s => {
@@ -2833,9 +2826,6 @@
       }
     }
 
-    // =========================================================
-    // TAB 6: REPORTS, FAIRNESS & COLLISION AUDIT RENDERING
-    // =========================================================
     function renderReportsTab() {
       const blockStart = addDaysISO(state.horizonStartDate, state.currentBlock * 28);
       const blockEnd = addDaysISO(blockStart, 27);
@@ -3014,9 +3004,6 @@
       `;
     }
 
-    // =========================================================
-    // USER INTERACTION HANDLERS
-    // =========================================================
     function switchTab(tabId) {
       state.activeTab = tabId;
       ['roster', 'staff', 'swaps', 'requests', 'shifts', 'reports'].forEach(t => {
@@ -3036,8 +3023,7 @@
     function toggleBlockLock() {
       if (!state.lockedBlocks) state.lockedBlocks = {};
       state.lockedBlocks[state.currentBlock] = !state.lockedBlocks[state.currentBlock];
-      saveState();
-      renderAll();
+      saveState(); renderAll();
       showToast(state.lockedBlocks[state.currentBlock] ? `Block ${state.currentBlock + 1} Published & Locked` : `Block ${state.currentBlock + 1} Unlocked for Editing`, 'info');
     }
 
@@ -3129,7 +3115,6 @@
       showToast('Saved coverage, seniority & WTD collision rules', 'success');
     }
 
-    // Cell Modal Functions
     function openCellModal(staffId, dateStr) {
       if (state.lockedBlocks && state.lockedBlocks[state.currentBlock]) {
         showToast(`Block ${state.currentBlock + 1} is Published & Locked. Click "Published (Locked)" button to unlock.`, 'error');
@@ -3272,7 +3257,6 @@
       showToast('Cleared roster cell', 'info');
     }
 
-    // Staff Modal Handlers
     function openStaffModal(staffId = null) {
       const modal = document.getElementById('staff-modal');
       const dayCbs = document.querySelectorAll('.flex-day-cb');
@@ -3506,9 +3490,6 @@
       });
     }
 
-    // =========================================================
-    // PERSONAL .ICS CALENDAR EXPORT
-    // =========================================================
     function openIcsExportModal() {
       const sel = document.getElementById('ics-staff-select');
       sel.innerHTML = state.staff.map(s => `<option value="${s.id}">${s.name} (${s.band})</option>`).join('');
@@ -3568,9 +3549,6 @@
       showToast(`Downloaded .ics calendar for ${st.name}`, 'success');
     }
 
-    // =========================================================
-    // MULTI-SHEET EXCEL WORKBOOK EXPORT (.XLSX VIA SHEETJS)
-    // =========================================================
     function exportToExcelWorkbook() {
       if (typeof XLSX === 'undefined') { showToast('Excel library loading, try again', 'error'); return; }
       const wb = XLSX.utils.book_new();
