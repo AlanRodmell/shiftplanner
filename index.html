@@ -155,18 +155,27 @@
       </div>
 
       <!-- Right: Minimum Core Coverage Quick Status & Config -->
-      <div class="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-          <span class="text-xs font-medium text-slate-600">Min Day Core:</span>
-          <input type="number" min="1" max="15" id="min-day-core-input" onchange="updateCoverageRules()" class="w-12 text-center text-xs font-bold border border-slate-300 rounded-md py-1 bg-white" />
+      <div class="flex flex-wrap items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+        <div class="flex items-center gap-1.5" title="Monday–Friday Minimum Core Staff (Day / Night)">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span class="text-[11px] font-bold uppercase text-slate-500">Wkday (D/N):</span>
+          <input type="number" min="1" max="15" id="min-day-core-input" onchange="updateQuickCoverageRules()" class="w-10 text-center text-xs font-bold border border-slate-300 rounded-md py-0.5 bg-white" title="Weekday Min Day Core" />
+          <span class="text-slate-400 font-bold">/</span>
+          <input type="number" min="1" max="15" id="min-night-core-input" onchange="updateQuickCoverageRules()" class="w-10 text-center text-xs font-bold border border-slate-300 rounded-md py-0.5 bg-white" title="Weekday Min Night Core" />
         </div>
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-          <span class="text-xs font-medium text-slate-600">Min Night Core:</span>
-          <input type="number" min="1" max="15" id="min-night-core-input" onchange="updateCoverageRules()" class="w-12 text-center text-xs font-bold border border-slate-300 rounded-md py-1 bg-white" />
+        <div class="h-4 w-px bg-slate-300 hidden sm:block"></div>
+        <div class="flex items-center gap-1.5" title="Saturday–Sunday Minimum Core Staff (Day / Night)">
+          <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+          <span class="text-[11px] font-bold uppercase text-slate-500">Wkend (D/N):</span>
+          <input type="number" min="1" max="15" id="min-wknd-day-core-input" onchange="updateQuickCoverageRules()" class="w-10 text-center text-xs font-bold border border-slate-300 rounded-md py-0.5 bg-white" title="Weekend Min Day Core" />
+          <span class="text-slate-400 font-bold">/</span>
+          <input type="number" min="1" max="15" id="min-wknd-night-core-input" onchange="updateQuickCoverageRules()" class="w-10 text-center text-xs font-bold border border-slate-300 rounded-md py-0.5 bg-white" title="Weekend Min Night Core" />
         </div>
-        <div class="h-5 w-px bg-slate-300 hidden sm:block"></div>
+        <button onclick="openCoverageModal()" class="text-xs font-semibold text-nhs-blue hover:bg-blue-100/70 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition" title="Configure Per-Day & Band 6+ Seniority Targets">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Rules</span>
+        </button>
+        <div class="h-4 w-px bg-slate-300 hidden sm:block"></div>
         <div id="block-coverage-pill" class="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5">
           <!-- Populated dynamically -->
         </div>
@@ -177,16 +186,42 @@
     <!-- TAB 1: 4-WEEK ROSTER PLANNER               -->
     <!-- ========================================== -->
     <section id="tab-roster" class="space-y-4">
-      <!-- Legend & Quick Filter Bar -->
+      <!-- Legend, Band Sort & Filter Bar -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2" id="shift-legend-bar">
           <!-- Dynamic Shift Legend Badges -->
         </div>
 
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-slate-500"><i class="fa-solid fa-hand-pointer mr-1"></i>Click any cell to assign shift or leave</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Band Filter & Sort Controls -->
+          <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+            <label for="roster-band-filter" class="text-[11px] font-bold uppercase text-slate-500"><i class="fa-solid fa-layer-group mr-1 text-nhs-blue"></i>Band:</label>
+            <select id="roster-band-filter" onchange="updateRosterFilter(this.value)" class="text-xs font-semibold bg-transparent text-slate-800 focus:outline-none cursor-pointer">
+              <option value="ALL">All Bands</option>
+              <option value="SENIOR">Senior (Band 6+)</option>
+              <option value="Band 8a">Band 8a</option>
+              <option value="Band 7">Band 7</option>
+              <option value="Band 6">Band 6</option>
+              <option value="Band 5">Band 5</option>
+              <option value="Band 4">Band 4</option>
+              <option value="Band 3">Band 3</option>
+              <option value="Band 2">Band 2</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+            <label for="roster-sort-select" class="text-[11px] font-bold uppercase text-slate-500"><i class="fa-solid fa-arrow-down-wide-short mr-1 text-nhs-blue"></i>Sort:</label>
+            <select id="roster-sort-select" onchange="updateRosterSort(this.value)" class="text-xs font-semibold bg-transparent text-slate-800 focus:outline-none cursor-pointer">
+              <option value="BAND_DESC">Band (High → Low)</option>
+              <option value="BAND_ASC">Band (Low → High)</option>
+              <option value="NAME_ASC">Staff Name (A → Z)</option>
+              <option value="HOURS_DESC">Contract Hours (High → Low)</option>
+              <option value="CORE_FIRST">Core Staff First</option>
+            </select>
+          </div>
+
           <button onclick="clearCurrentBlockShifts()" class="text-xs text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-lg font-medium transition">
-            <i class="fa-regular fa-trash-can mr-1"></i>Clear Block Shifts
+            <i class="fa-regular fa-trash-can mr-1"></i>Clear Block
           </button>
         </div>
       </div>
@@ -393,15 +428,33 @@
             </div>
           </div>
 
-          <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="space-y-1">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-nhs-dark flex items-center gap-1.5">
-                <i class="fa-solid fa-shield-halved"></i> Safe-Staffing & Auto-Scheduler Rules
-              </h4>
-              <p class="text-xs text-slate-600">
-                • <strong>Day Core Coverage:</strong> Satisfied by staff marked as <em>Core Staff</em> working any <strong>DAY</strong> category shift (e.g., LD, E, L).<br/>
-                • <strong>Night Core Coverage:</strong> Satisfied by <em>Core Staff</em> working any <strong>NIGHT</strong> category shift (e.g., N).<br/>
-                • <strong>WTD Rest Protection:</strong> A staff member working a Night (N) shift will never be auto-assigned a Day shift the immediately following morning.
+          <!-- Configurable Day & Night Coverage Requirements Panel -->
+          <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-user-shield text-nhs-blue"></i>
+                  <span>Configurable Day & Night Coverage Requirements</span>
+                </h3>
+                <p class="text-xs text-slate-500">Set Weekday vs Weekend Core targets, per-day overrides, and minimum Senior (Band 6+) shift leadership</p>
+              </div>
+              <button onclick="openCoverageModal()" class="text-xs bg-nhs-blue hover:bg-nhs-dark text-white font-semibold px-3 py-1.5 rounded-lg shadow-2xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-sliders"></i> Configure Per-Day Targets
+              </button>
+            </div>
+
+            <div id="shifts-tab-coverage-summary" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-xs">
+              <!-- Populated dynamically with Mon-Sun Day/Night targets -->
+            </div>
+
+            <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1">
+              <div class="font-bold text-nhs-dark flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved"></i> Safe-Staffing & Auto-Scheduler Enforcement
+              </div>
+              <p>
+                • <strong>Day & Night Core Targets:</strong> Dynamically checked per day of the week in the Roster Footer and enforced first by the Auto-Suggest Engine.<br/>
+                • <strong>Band 6+ Seniority Check:</strong> Optionally requires at least the configured number of Band 6, Band 7, or Band 8a staff on Day and Night shifts.<br/>
+                • <strong>WTD Rest Protection:</strong> Staff working a Night (N) shift are never auto-assigned a Day shift the following morning.
               </p>
             </div>
           </div>
@@ -435,6 +488,7 @@
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase text-[11px]">
                 <th class="py-2.5 px-3">Staff Member</th>
+                <th class="py-2.5 px-3">Band</th>
                 <th class="py-2.5 px-3">Role & Core</th>
                 <th class="py-2.5 px-3 text-center">Wk 1 Hrs</th>
                 <th class="py-2.5 px-3 text-center">Wk 2 Hrs</th>
@@ -531,22 +585,37 @@
       <form onsubmit="handleSaveStaff(event)" class="p-5 space-y-4 text-xs sm:text-sm max-h-[82vh] overflow-y-auto">
         <input type="hidden" id="staff-id-input" />
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
             <input type="text" id="staff-name-input" required placeholder="e.g. Sarah Jenkins" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Role / Band</label>
-            <select id="staff-role-input" class="w-full border border-slate-300 rounded-lg px-3 py-2">
-              <option value="Ward Sister / Charge Nurse (Band 7)">Ward Sister / Charge Nurse (Band 7)</option>
-              <option value="Junior Sister / Deputy (Band 6)">Junior Sister / Deputy (Band 6)</option>
-              <option value="Senior Staff Nurse (Band 5)">Senior Staff Nurse (Band 5)</option>
-              <option value="Registered Staff Nurse (Band 5)">Registered Staff Nurse (Band 5)</option>
-              <option value="Nursing Associate (Band 4)">Nursing Associate (Band 4)</option>
-              <option value="Senior Healthcare Assistant (Band 3)">Senior Healthcare Assistant (Band 3)</option>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">NHS Band</label>
+            <select id="staff-band-input" class="w-full border border-slate-300 rounded-lg px-3 py-2 font-bold text-slate-800">
+              <option value="Band 8a">Band 8a (Matron / Lead)</option>
+              <option value="Band 7">Band 7 (Sister / Charge)</option>
+              <option value="Band 6">Band 6 (Deputy / Jr Sister)</option>
+              <option value="Band 5" selected>Band 5 (Staff Nurse)</option>
+              <option value="Band 4">Band 4 (Nursing Assoc.)</option>
+              <option value="Band 3">Band 3 (Senior HCA)</option>
+              <option value="Band 2">Band 2 (Healthcare Asst.)</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Job Title / Clinical Role</label>
+          <select id="staff-role-input" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+            <option value="Lead Nurse / Matron">Lead Nurse / Matron</option>
+            <option value="Ward Sister / Charge Nurse">Ward Sister / Charge Nurse</option>
+            <option value="Junior Sister / Deputy Charge Nurse">Junior Sister / Deputy Charge Nurse</option>
+            <option value="Senior Staff Nurse">Senior Staff Nurse</option>
+            <option value="Registered Staff Nurse">Registered Staff Nurse</option>
+            <option value="Registered Nursing Associate">Registered Nursing Associate</option>
+            <option value="Senior Healthcare Assistant">Senior Healthcare Assistant</option>
+            <option value="Healthcare Assistant">Healthcare Assistant</option>
+          </select>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -657,7 +726,7 @@
           <ul class="list-disc list-inside space-y-1 text-slate-700">
             <li>Respects all logged <strong>Day Off (DO)</strong>, <strong>Annual Leave (AL)</strong>, and <strong>Study Leave (SL)</strong> requests.</li>
             <li>Enforces every staff member's <strong>Flexible Working Agreement</strong> (fixed unavailable weekdays, Day/Night/Short shift rules, max consecutive days).</li>
-            <li>Guarantees daily minimum <strong>Core Day (<span id="auto-modal-day-min">3</span>)</strong> and <strong>Core Night (<span id="auto-modal-night-min">2</span>)</strong> coverage first.</li>
+            <li>Guarantees configured daily <strong>Weekday & Weekend Core Day (<span id="auto-modal-day-min">3</span>)</strong>, <strong>Core Night (<span id="auto-modal-night-min">2</span>)</strong>, and <strong>Band 6+ Seniority</strong> targets first.</li>
             <li>Balances remaining shifts week-by-week to match each person's <strong>weekly contracted hours</strong> without night-to-day turnarounds.</li>
           </ul>
         </div>
@@ -706,6 +775,174 @@
     </div>
   </div>
 
+  <!-- ========================================================= -->
+  <!-- MODAL 4: CONFIGURABLE DAY & NIGHT COVERAGE RULES          -->
+  <!-- ========================================================= -->
+  <div id="coverage-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden">
+      <div class="bg-nhs-dark text-white px-5 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-sliders text-lg text-blue-300"></i>
+          <div>
+            <h3 class="text-sm font-bold">Configure Day & Night Coverage Requirements</h3>
+            <p class="text-xs text-blue-200">Set Weekday/Weekend defaults, per-day overrides, and minimum Band 6+ Seniority</p>
+          </div>
+        </div>
+        <button onclick="closeCoverageModal()" class="text-blue-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form onsubmit="handleSaveCoverageModal(event)" class="p-5 space-y-4 text-xs sm:text-sm max-h-[82vh] overflow-y-auto">
+        <!-- Quick Weekday vs Weekend Presets -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div class="space-y-2">
+            <div class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Weekday Default (Mon–Fri)
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-500 font-semibold">Min Day Core</label>
+                <input type="number" min="1" max="15" id="cov-modal-wkday-day" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-500 font-semibold">Min Night Core</label>
+                <input type="number" min="1" max="15" id="cov-modal-wkday-night" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold bg-white" />
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Weekend Default (Sat–Sun)
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-500 font-semibold">Min Day Core</label>
+                <input type="number" min="1" max="15" id="cov-modal-wkend-day" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-500 font-semibold">Min Night Core</label>
+                <input type="number" min="1" max="15" id="cov-modal-wkend-night" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold bg-white" />
+              </div>
+            </div>
+          </div>
+
+          <div class="sm:col-span-2 flex justify-end pt-1">
+            <button type="button" onclick="applyWeekdayWeekendDefaultsToDays()" class="text-xs font-semibold text-nhs-blue hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-arrows-rotate"></i> Apply Weekday/Weekend Defaults to All 7 Days Below
+            </button>
+          </div>
+        </div>
+
+        <!-- Per-Day of Week Granular Table -->
+        <div class="space-y-2">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Per-Day Core Staffing Targets (Mon – Sun)</label>
+          <div class="grid grid-cols-7 gap-2 text-center">
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div class="font-bold text-xs text-slate-700">Mon</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-1" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-1" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div class="font-bold text-xs text-slate-700">Tue</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-2" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-2" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div class="font-bold text-xs text-slate-700">Wed</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-3" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-3" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div class="font-bold text-xs text-slate-700">Thu</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-4" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-4" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div class="font-bold text-xs text-slate-700">Fri</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-5" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-5" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-1.5">
+              <div class="font-bold text-xs text-indigo-900">Sat</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-6" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-6" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+            <div class="p-2 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-1.5">
+              <div class="font-bold text-xs text-indigo-900">Sun</div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">☀️ Day</span>
+                <input type="number" min="1" max="15" id="cov-day-0" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">🌙 Night</span>
+                <input type="number" min="1" max="15" id="cov-night-0" class="w-full text-center border border-slate-300 rounded py-1 font-bold text-xs bg-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Band 6+ Seniority / Shift Leader Requirement -->
+        <div class="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2">
+          <div class="font-bold text-purple-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-award text-purple-600"></i> Senior Clinical Lead Requirement (Band 6 / Band 7 / Band 8a)
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Min Senior (Band 6+) on Day Shift</label>
+              <input type="number" min="0" max="5" id="cov-modal-senior-day" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 font-bold bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Min Senior (Band 6+) on Night Shift</label>
+              <input type="number" min="0" max="5" id="cov-modal-senior-night" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 font-bold bg-white" />
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-500">Set to 0 if Senior Band 6+ presence is not strictly mandatory on a shift.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+          <button type="button" onclick="closeCoverageModal()" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-nhs-blue hover:bg-nhs-dark text-white font-bold text-xs shadow">Save Coverage Rules</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Custom Confirmation / Notification Toast -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
@@ -732,7 +969,7 @@
   <!-- APPLICATION JAVASCRIPT                                    -->
   <!-- ========================================================= -->
   <script>
-    const STORAGE_KEY = 'MEDIROSTER_HOSPITAL_POC_V1';
+    const STORAGE_KEY = 'MEDIROSTER_HOSPITAL_POC_V2';
 
     // Theme map for shift badges
     const COLOR_THEMES = {
@@ -743,6 +980,31 @@
       teal:   { bg: 'bg-teal-100',   text: 'text-teal-900',   border: 'border-teal-300',   pill: 'bg-teal-600' },
       purple: { bg: 'bg-purple-100', text: 'text-purple-900', border: 'border-purple-300', pill: 'bg-purple-600' }
     };
+
+    // NHS Band Ranking & Visual Badge Styling
+    const BAND_META = {
+      'Band 8a': { rank: 8, short: 'B8a', label: 'Band 8a', isSenior: true,  bg: 'bg-rose-100',    text: 'text-rose-900',    border: 'border-rose-300' },
+      'Band 7':  { rank: 7, short: 'B7',  label: 'Band 7',  isSenior: true,  bg: 'bg-purple-100',  text: 'text-purple-900',  border: 'border-purple-300' },
+      'Band 6':  { rank: 6, short: 'B6',  label: 'Band 6',  isSenior: true,  bg: 'bg-indigo-100',  text: 'text-indigo-900',  border: 'border-indigo-300' },
+      'Band 5':  { rank: 5, short: 'B5',  label: 'Band 5',  isSenior: false, bg: 'bg-blue-100',    text: 'text-blue-900',    border: 'border-blue-300' },
+      'Band 4':  { rank: 4, short: 'B4',  label: 'Band 4',  isSenior: false, bg: 'bg-teal-100',    text: 'text-teal-900',    border: 'border-teal-300' },
+      'Band 3':  { rank: 3, short: 'B3',  label: 'Band 3',  isSenior: false, bg: 'bg-emerald-100', text: 'text-emerald-900', border: 'border-emerald-300' },
+      'Band 2':  { rank: 2, short: 'B2',  label: 'Band 2',  isSenior: false, bg: 'bg-slate-200',   text: 'text-slate-800',   border: 'border-slate-300' }
+    };
+
+    function getBandInfo(bandStr) {
+      return BAND_META[bandStr] || BAND_META['Band 5'];
+    }
+
+    function inferBandFromRole(roleStr) {
+      if (!roleStr) return 'Band 5';
+      const match = roleStr.match(/Band\s*(\d+[a-z]?)/i);
+      if (match) {
+        const key = `Band ${match[1]}`;
+        if (BAND_META[key]) return key;
+      }
+      return 'Band 5';
+    }
 
     const LEAVE_TYPES = {
       DO: { code: 'DO', name: 'Requested Day Off', hours: 0,   bg: 'bg-rose-100',   text: 'text-rose-800',   border: 'border-rose-300' },
@@ -756,9 +1018,24 @@
       horizonStartDate: '2026-10-19', // Monday start of 12-week horizon
       currentBlock: 0,                // 0 = Weeks 1-4, 1 = Weeks 5-8, 2 = Weeks 9-12
       weekFilter: 'all',              // 'all' or 0, 1, 2, 3
+      rosterSort: 'BAND_DESC',        // 'BAND_DESC', 'BAND_ASC', 'NAME_ASC', 'HOURS_DESC', 'CORE_FIRST'
+      rosterBandFilter: 'ALL',        // 'ALL', 'SENIOR', 'Band 7', 'Band 6', 'Band 5', etc.
       coverageRules: {
         minDayCore: 3,
-        minNightCore: 2
+        minNightCore: 2,
+        weekendDayCore: 3,
+        weekendNightCore: 2,
+        minSeniorDay: 1,
+        minSeniorNight: 0,
+        perDay: {
+          1: { day: 3, night: 2 },
+          2: { day: 3, night: 2 },
+          3: { day: 3, night: 2 },
+          4: { day: 3, night: 2 },
+          5: { day: 3, night: 2 },
+          6: { day: 3, night: 2 },
+          0: { day: 3, night: 2 }
+        }
       },
       shifts: [],
       staff: [],
@@ -808,7 +1085,25 @@
       state.horizonStartDate = startMon;
       state.currentBlock = 0;
       state.weekFilter = 'all';
-      state.coverageRules = { minDayCore: 3, minNightCore: 2 };
+      state.rosterSort = 'BAND_DESC';
+      state.rosterBandFilter = 'ALL';
+      state.coverageRules = {
+        minDayCore: 3,
+        minNightCore: 2,
+        weekendDayCore: 3,
+        weekendNightCore: 2,
+        minSeniorDay: 1,
+        minSeniorNight: 0,
+        perDay: {
+          1: { day: 3, night: 2 },
+          2: { day: 3, night: 2 },
+          3: { day: 3, night: 2 },
+          4: { day: 3, night: 2 },
+          5: { day: 3, night: 2 },
+          6: { day: 3, night: 2 },
+          0: { day: 3, night: 2 }
+        }
+      };
 
       state.shifts = [
         { code: 'LD', name: 'Long Day',       start: '07:00', end: '19:30', hours: 11.5, category: 'DAY',     color: 'blue' },
@@ -822,7 +1117,8 @@
         {
           id: 'st-1',
           name: 'Sr. Eleanor Vance',
-          role: 'Ward Sister / Charge Nurse (Band 7)',
+          band: 'Band 7',
+          role: 'Ward Sister / Charge Nurse',
           weeklyHours: 37.5,
           isCore: true,
           flex: {
@@ -835,7 +1131,8 @@
         {
           id: 'st-2',
           name: 'Marcus Thorne',
-          role: 'Junior Sister / Deputy (Band 6)',
+          band: 'Band 6',
+          role: 'Junior Sister / Deputy Charge Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -848,7 +1145,8 @@
         {
           id: 'st-3',
           name: 'Priya Patel',
-          role: 'Junior Sister / Deputy (Band 6)',
+          band: 'Band 6',
+          role: 'Junior Sister / Deputy Charge Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -861,7 +1159,8 @@
         {
           id: 'st-4',
           name: 'David Okafor',
-          role: 'Senior Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Senior Staff Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -874,7 +1173,8 @@
         {
           id: 'st-5',
           name: 'Hannah Abbott',
-          role: 'Registered Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Registered Staff Nurse',
           weeklyHours: 30.0,
           isCore: true,
           flex: {
@@ -887,7 +1187,8 @@
         {
           id: 'st-6',
           name: 'Liam O\'Connor',
-          role: 'Registered Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Registered Staff Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -900,7 +1201,8 @@
         {
           id: 'st-7',
           name: 'Chloe Zhao',
-          role: 'Registered Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Registered Staff Nurse',
           weeklyHours: 23.0,
           isCore: true,
           flex: {
@@ -913,7 +1215,8 @@
         {
           id: 'st-8',
           name: 'Amira Al-Mansoor',
-          role: 'Registered Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Registered Staff Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -926,7 +1229,8 @@
         {
           id: 'st-9',
           name: 'Benjy Lukaku',
-          role: 'Registered Staff Nurse (Band 5)',
+          band: 'Band 5',
+          role: 'Registered Staff Nurse',
           weeklyHours: 34.5,
           isCore: true,
           flex: {
@@ -939,7 +1243,8 @@
         {
           id: 'st-10',
           name: 'Grace Galloway',
-          role: 'Nursing Associate (Band 4)',
+          band: 'Band 4',
+          role: 'Registered Nursing Associate',
           weeklyHours: 37.5,
           isCore: false,
           flex: {
@@ -952,7 +1257,8 @@
         {
           id: 'st-11',
           name: 'Tomasz Kowalski',
-          role: 'Senior Healthcare Assistant (Band 3)',
+          band: 'Band 3',
+          role: 'Senior Healthcare Assistant',
           weeklyHours: 34.5,
           isCore: false,
           flex: {
@@ -1000,6 +1306,13 @@
           const parsed = JSON.parse(raw);
           if (parsed && parsed.staff && parsed.shifts) {
             state = parsed;
+            // Ensure backward compatibility for Band & Coverage Rules
+            state.staff.forEach(s => {
+              if (!s.band) s.band = inferBandFromRole(s.role);
+            });
+            if (!state.rosterSort) state.rosterSort = 'BAND_DESC';
+            if (!state.rosterBandFilter) state.rosterBandFilter = 'ALL';
+            ensureCoverageRulesStructure();
             return;
           }
         }
@@ -1007,6 +1320,78 @@
         console.warn('Could not load saved state, initializing defaults', e);
       }
       createDefaultHospitalData();
+    }
+
+    function ensureCoverageRulesStructure() {
+      if (!state.coverageRules) state.coverageRules = {};
+      const r = state.coverageRules;
+      if (typeof r.minDayCore !== 'number') r.minDayCore = 3;
+      if (typeof r.minNightCore !== 'number') r.minNightCore = 2;
+      if (typeof r.weekendDayCore !== 'number') r.weekendDayCore = r.minDayCore;
+      if (typeof r.weekendNightCore !== 'number') r.weekendNightCore = r.minNightCore;
+      if (typeof r.minSeniorDay !== 'number') r.minSeniorDay = 1;
+      if (typeof r.minSeniorNight !== 'number') r.minSeniorNight = 0;
+      if (!r.perDay) {
+        r.perDay = {};
+        for (let d = 0; d <= 6; d++) {
+          const isWknd = d === 0 || d === 6;
+          r.perDay[d] = {
+            day: isWknd ? r.weekendDayCore : r.minDayCore,
+            night: isWknd ? r.weekendNightCore : r.minNightCore
+          };
+        }
+      }
+    }
+
+    // Retrieve the configured Day/Night Core & Seniority targets for a specific date
+    function getRequiredCoverageForDate(dateStr) {
+      ensureCoverageRulesStructure();
+      const dow = parseISODate(dateStr).getDay();
+      const daySpec = state.coverageRules.perDay[dow] || {
+        day: state.coverageRules.minDayCore,
+        night: state.coverageRules.minNightCore
+      };
+      return {
+        reqDayCore: Number(daySpec.day) || 1,
+        reqNightCore: Number(daySpec.night) || 1,
+        reqSeniorDay: Number(state.coverageRules.minSeniorDay) || 0,
+        reqSeniorNight: Number(state.coverageRules.minSeniorNight) || 0
+      };
+    }
+
+    // Sort & Filter Staff list according to active user controls
+    function getSortedAndFilteredStaff(applyBandFilter = true) {
+      let list = [...state.staff];
+      if (applyBandFilter && state.rosterBandFilter && state.rosterBandFilter !== 'ALL') {
+        if (state.rosterBandFilter === 'SENIOR') {
+          list = list.filter(s => getBandInfo(s.band).isSenior);
+        } else {
+          list = list.filter(s => s.band === state.rosterBandFilter);
+        }
+      }
+
+      const sortMode = state.rosterSort || 'BAND_DESC';
+      list.sort((a, b) => {
+        const rankA = getBandInfo(a.band).rank;
+        const rankB = getBandInfo(b.band).rank;
+        if (sortMode === 'BAND_DESC') {
+          if (rankB !== rankA) return rankB - rankA;
+          return a.name.localeCompare(b.name);
+        } else if (sortMode === 'BAND_ASC') {
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name);
+        } else if (sortMode === 'NAME_ASC') {
+          return a.name.localeCompare(b.name);
+        } else if (sortMode === 'HOURS_DESC') {
+          if (b.weeklyHours !== a.weeklyHours) return b.weeklyHours - a.weeklyHours;
+          return rankB - rankA;
+        } else if (sortMode === 'CORE_FIRST') {
+          if (a.isCore !== b.isCore) return a.isCore ? -1 : 1;
+          return rankB - rankA;
+        }
+        return 0;
+      });
+      return list;
     }
 
     function saveState() {
@@ -1171,13 +1556,14 @@
           }
         }
 
-        // Step 1: Satisfy Daily Minimum Core NIGHT Coverage (e.g., 2 Core Staff per night)
+        // Step 1: Satisfy Daily Minimum Core NIGHT Coverage (using configured per-day targets & Seniority)
         for (let d = 0; d < 7; d++) {
           const dateStr = addDaysISO(weekStart, d);
-          let currentNightCore = countDailyCoreCoverage(dateStr).nightCore;
+          const reqCov = getRequiredCoverageForDate(dateStr);
+          let covNow = countDailyCoreCoverage(dateStr);
 
-          while (currentNightCore < state.coverageRules.minNightCore) {
-            // Find eligible Core staff for Night shift sorted by most remaining weekly hours
+          while (covNow.nightCore < reqCov.reqNightCore) {
+            const needSenior = covNow.seniorNight < reqCov.reqSeniorNight;
             const candidates = state.staff
               .filter(st => st.isCore && !state.assignments[`${st.id}_${dateStr}`])
               .map(st => {
@@ -1188,28 +1574,31 @@
                 const check = checkShiftCompatibility(st, shift, dateStr, true);
                 if (!check.valid) return null;
                 if (usedHrs + shift.hours > st.weeklyHours + 4.0) return null;
-                // Prefer NIGHT_ONLY staff or those who worked Night yesterday (to group night blocks of 2-3)
                 const workedNightYesterday = state.assignments[`${st.id}_${addDaysISO(dateStr, -1)}`] === shift.code ? 1 : 0;
                 const isNightOnly = st.flex.pattern === 'NIGHT_ONLY' ? 1 : 0;
-                return { st, shift, remHrs, score: isNightOnly * 50 + workedNightYesterday * 30 + remHrs };
+                const isSenior = getBandInfo(st.band).isSenior ? 1 : 0;
+                const seniorBonus = needSenior && isSenior ? 80 : 0;
+                return { st, shift, remHrs, score: seniorBonus + isNightOnly * 50 + workedNightYesterday * 30 + remHrs };
               })
               .filter(Boolean)
               .sort((a, b) => b.score - a.score);
 
-            if (candidates.length === 0) break; // No valid core staff left for this night
+            if (candidates.length === 0) break;
             const chosen = candidates[0];
             state.assignments[`${chosen.st.id}_${dateStr}`] = chosen.shift.code;
             shiftsAssignedCount++;
-            currentNightCore++;
+            covNow = countDailyCoreCoverage(dateStr);
           }
         }
 
-        // Step 2: Satisfy Daily Minimum Core DAY Coverage (e.g., 3 Core Staff per day)
+        // Step 2: Satisfy Daily Minimum Core DAY Coverage (using configured per-day targets & Band 6+ Seniority)
         for (let d = 0; d < 7; d++) {
           const dateStr = addDaysISO(weekStart, d);
-          let currentDayCore = countDailyCoreCoverage(dateStr).dayCore;
+          const reqCov = getRequiredCoverageForDate(dateStr);
+          let covNow = countDailyCoreCoverage(dateStr);
 
-          while (currentDayCore < state.coverageRules.minDayCore) {
+          while (covNow.dayCore < reqCov.reqDayCore) {
+            const needSenior = covNow.seniorDay < reqCov.reqSeniorDay;
             const candidates = state.staff
               .filter(st => st.isCore && !state.assignments[`${st.id}_${dateStr}`])
               .map(st => {
@@ -1220,16 +1609,18 @@
                 const check = checkShiftCompatibility(st, shift, dateStr, true);
                 if (!check.valid) return null;
                 if (usedHrs + shift.hours > st.weeklyHours + 4.0) return null;
-                return { st, shift, remHrs };
+                const isSenior = getBandInfo(st.band).isSenior ? 1 : 0;
+                const seniorBonus = needSenior && isSenior ? 80 : 0;
+                return { st, shift, remHrs, score: seniorBonus + remHrs };
               })
               .filter(Boolean)
-              .sort((a, b) => b.remHrs - a.remHrs);
+              .sort((a, b) => b.score - a.score);
 
             if (candidates.length === 0) break;
             const chosen = candidates[0];
             state.assignments[`${chosen.st.id}_${dateStr}`] = chosen.shift.code;
             shiftsAssignedCount++;
-            currentDayCore++;
+            covNow = countDailyCoreCoverage(dateStr);
           }
         }
 
@@ -1272,10 +1663,12 @@
       return shiftsAssignedCount;
     }
 
-    // Count Day Core & Night Core staff on a specific date
+    // Count Day Core, Night Core, and Senior Band 6+ staff on a specific date against configured rules
     function countDailyCoreCoverage(dateStr) {
       let dayCore = 0;
       let nightCore = 0;
+      let seniorDay = 0;
+      let seniorNight = 0;
       let supportCount = 0;
       let totalStaff = 0;
 
@@ -1285,19 +1678,44 @@
         const sh = getShiftByCode(code);
         if (!sh) return;
         totalStaff++;
-        if (sh.category === 'DAY' && st.isCore) dayCore++;
-        else if (sh.category === 'NIGHT' && st.isCore) nightCore++;
-        else supportCount++;
+        const isSen = getBandInfo(st.band).isSenior;
+        if (sh.category === 'DAY') {
+          if (st.isCore) dayCore++;
+          else supportCount++;
+          if (isSen) seniorDay++;
+        } else if (sh.category === 'NIGHT') {
+          if (st.isCore) nightCore++;
+          else supportCount++;
+          if (isSen) seniorNight++;
+        } else {
+          supportCount++;
+        }
       });
 
-      const dayOk = dayCore >= state.coverageRules.minDayCore;
-      const nightOk = nightCore >= state.coverageRules.minNightCore;
+      const req = getRequiredCoverageForDate(dateStr);
+      const dayCoreOk = dayCore >= req.reqDayCore;
+      const nightCoreOk = nightCore >= req.reqNightCore;
+      const seniorDayOk = seniorDay >= req.reqSeniorDay;
+      const seniorNightOk = seniorNight >= req.reqSeniorNight;
+
+      const dayOk = dayCoreOk && seniorDayOk;
+      const nightOk = nightCoreOk && seniorNightOk;
 
       return {
         dayCore,
         nightCore,
+        seniorDay,
+        seniorNight,
+        reqDayCore: req.reqDayCore,
+        reqNightCore: req.reqNightCore,
+        reqSeniorDay: req.reqSeniorDay,
+        reqSeniorNight: req.reqSeniorNight,
         supportCount,
         totalStaff,
+        dayCoreOk,
+        nightCoreOk,
+        seniorDayOk,
+        seniorNightOk,
         dayOk,
         nightOk,
         allOk: dayOk && nightOk
@@ -1308,12 +1726,20 @@
     // UI RENDERING FUNCTIONS
     // =========================================================
     function renderAll() {
+      ensureCoverageRulesStructure();
       // Sync top controls
       document.getElementById('horizon-start-input').value = state.horizonStartDate;
       document.getElementById('min-day-core-input').value = state.coverageRules.minDayCore;
       document.getElementById('min-night-core-input').value = state.coverageRules.minNightCore;
+      document.getElementById('min-wknd-day-core-input').value = state.coverageRules.weekendDayCore;
+      document.getElementById('min-wknd-night-core-input').value = state.coverageRules.weekendNightCore;
       document.getElementById('badge-staff-count').textContent = state.staff.length;
       document.getElementById('badge-req-count').textContent = Object.keys(state.requests).length;
+
+      const sortSel = document.getElementById('roster-sort-select');
+      if (sortSel) sortSel.value = state.rosterSort || 'BAND_DESC';
+      const bandFilterSel = document.getElementById('roster-band-filter');
+      if (bandFilterSel) bandFilterSel.value = state.rosterBandFilter || 'ALL';
 
       // Highlight active Block button
       [0, 1, 2].forEach(b => {
@@ -1408,10 +1834,21 @@
       const tbody = document.getElementById('roster-tbody');
       const tfoot = document.getElementById('roster-tfoot');
 
-      // 1. Build Header Row
+      const sortIcon = state.rosterSort === 'BAND_DESC'
+        ? '<i class="fa-solid fa-sort-down text-nhs-blue ml-1"></i>'
+        : (state.rosterSort === 'BAND_ASC' ? '<i class="fa-solid fa-sort-up text-nhs-blue ml-1"></i>' : '<i class="fa-solid fa-sort text-slate-400 ml-1"></i>');
+
+      // 1. Build Header Row (Clickable Staff/Band header to toggle Band sorting at a glance)
       let headHtml = `
         <tr class="bg-slate-100 border-b border-slate-300 text-[11px] text-slate-600 uppercase">
-          <th class="sticky-col-1 bg-slate-100 py-3 px-3 min-w-[210px] border-r border-slate-200 font-bold">Staff Member & Flex</th>
+          <th onclick="toggleHeaderBandSort()" class="sticky-col-1 bg-slate-100 hover:bg-slate-200/80 cursor-pointer select-none py-3 px-3 min-w-[210px] border-r border-slate-200 font-bold transition" title="Click to toggle sort by NHS Band">
+            <div class="flex items-center justify-between">
+              <span>Staff Member & Band</span>
+              <span class="text-[10px] font-semibold bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-700 flex items-center">
+                BAND ${sortIcon}
+              </span>
+            </div>
+          </th>
           <th class="sticky-col-2 bg-slate-100 py-3 px-2.5 min-w-[115px] border-r border-slate-300 text-center font-bold">Planned / Target</th>
       `;
 
@@ -1435,9 +1872,23 @@
       headHtml += `</tr>`;
       thead.innerHTML = headHtml;
 
-      // 2. Build Staff Rows
+      // 2. Build Staff Rows (Sorted & Filtered by Band)
+      const visibleStaff = getSortedAndFilteredStaff(true);
       let bodyHtml = '';
-      state.staff.forEach(st => {
+
+      if (visibleStaff.length === 0) {
+        bodyHtml = `
+          <tr>
+            <td colspan="${dates.length + 2}" class="py-8 text-center text-slate-400 text-xs">
+              No staff members match the selected Band filter (<strong>${state.rosterBandFilter}</strong>).
+              <button onclick="updateRosterFilter('ALL')" class="ml-2 text-nhs-blue font-semibold underline">Show All Bands</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      visibleStaff.forEach(st => {
+        const bInfo = getBandInfo(st.band);
         // Compute hours across the visible window (either 4-week block or single filtered week)
         const targetHours = state.weekFilter === 'all' ? st.weeklyHours * 4 : st.weeklyHours;
         let plannedHours = 0;
@@ -1464,13 +1915,16 @@
           <tr class="hover:bg-slate-50/80 transition">
             <td class="sticky-col-1 bg-white py-2.5 px-3 border-r border-slate-200">
               <div class="flex items-center justify-between gap-1">
-                <span class="font-bold text-slate-800 truncate">${st.name}</span>
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${bInfo.bg} ${bInfo.text} ${bInfo.border}" title="NHS ${bInfo.label}">${bInfo.label.toUpperCase()}</span>
+                  <span class="font-bold text-slate-800 truncate" title="${st.name}">${st.name}</span>
+                </div>
                 ${st.isCore
-                  ? `<span class="text-[10px] font-bold bg-blue-100 text-nhs-dark px-1.5 py-0.5 rounded" title="Core Safe-Staffing">CORE</span>`
-                  : `<span class="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">SUPP</span>`
+                  ? `<span class="shrink-0 text-[9px] font-bold bg-blue-100 text-nhs-dark px-1.5 py-0.5 rounded" title="Core Safe-Staffing">CORE</span>`
+                  : `<span class="shrink-0 text-[9px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">SUPP</span>`
                 }
               </div>
-              <div class="text-[11px] text-slate-500 truncate">${st.role}</div>
+              <div class="text-[11px] text-slate-500 truncate mt-0.5">${st.role}</div>
               ${st.flex.pattern !== 'ALL' || (st.flex.unavailableDays && st.flex.unavailableDays.length > 0)
                 ? `<div class="mt-0.5 text-[10px] text-indigo-700 font-medium flex items-center gap-1 truncate" title="${st.flex.note || ''}">
                      <i class="fa-solid fa-sliders text-[9px]"></i> ${formatFlexShortSummary(st.flex)}
@@ -1545,18 +1999,26 @@
       });
       tbody.innerHTML = bodyHtml;
 
-      // 3. Build Footer Core Coverage Rows (Day Core & Night Core)
+      // 3. Build Footer Core Coverage Rows (Dynamic per-day Day Core, Night Core & Senior Band 6+ checks)
+      const senDayReq = state.coverageRules.minSeniorDay || 0;
+      const senNightReq = state.coverageRules.minSeniorNight || 0;
+
       let footHtml = `
         <tr class="bg-slate-100 border-t-2 border-slate-300 text-xs font-semibold">
           <td class="sticky-col-1 bg-slate-100 py-2.5 px-3 border-r border-slate-200 text-slate-800">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-sun text-amber-500"></i>
-              <span>Day Core Coverage</span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-sun text-amber-500"></i>
+                <span>Day Core Coverage</span>
+              </div>
+              <button onclick="openCoverageModal()" class="text-[10px] text-nhs-blue hover:underline font-semibold">Edit</button>
             </div>
-            <div class="text-[10px] font-normal text-slate-500">Target: Min ${state.coverageRules.minDayCore} Core Staff</div>
+            <div class="text-[10px] font-normal text-slate-500">
+              Wkday ${state.coverageRules.minDayCore} / Wkend ${state.coverageRules.weekendDayCore}${senDayReq > 0 ? ` • Min ${senDayReq} B6+` : ''}
+            </div>
           </td>
           <td class="sticky-col-2 bg-slate-100 py-2 px-2 border-r border-slate-300 text-center text-[11px] text-slate-600">
-            Daily Check
+            Daily Target
           </td>
       `;
 
@@ -1565,10 +2027,12 @@
         const badgeCls = cov.dayOk
           ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
           : 'bg-red-100 text-red-800 border-red-300 animate-pulse';
+        const senNote = cov.reqSeniorDay > 0 ? ` | Senior B6+: ${cov.seniorDay}/${cov.reqSeniorDay}` : '';
         footHtml += `
           <td class="p-1.5 text-center border-r border-slate-200">
-            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls}" title="Day Core Staff: ${cov.dayCore} / Min ${state.coverageRules.minDayCore}">
-              ${cov.dayCore}/${state.coverageRules.minDayCore}
+            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls} flex flex-col items-center justify-center leading-tight" title="Day Core Staff: ${cov.dayCore}/${cov.reqDayCore}${senNote}">
+              <span>${cov.dayCore}/${cov.reqDayCore}</span>
+              ${cov.reqSeniorDay > 0 ? `<span class="text-[9px] font-semibold ${cov.seniorDayOk ? 'opacity-75' : 'text-red-900 underline'}">B6+:${cov.seniorDay}</span>` : ''}
             </div>
           </td>
         `;
@@ -1578,14 +2042,19 @@
       footHtml += `
         <tr class="bg-slate-100 border-t border-slate-200 text-xs font-semibold">
           <td class="sticky-col-1 bg-slate-100 py-2.5 px-3 border-r border-slate-200 text-slate-800">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-moon text-indigo-600"></i>
-              <span>Night Core Coverage</span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-moon text-indigo-600"></i>
+                <span>Night Core Coverage</span>
+              </div>
+              <button onclick="openCoverageModal()" class="text-[10px] text-nhs-blue hover:underline font-semibold">Edit</button>
             </div>
-            <div class="text-[10px] font-normal text-slate-500">Target: Min ${state.coverageRules.minNightCore} Core Staff</div>
+            <div class="text-[10px] font-normal text-slate-500">
+              Wkday ${state.coverageRules.minNightCore} / Wkend ${state.coverageRules.weekendNightCore}${senNightReq > 0 ? ` • Min ${senNightReq} B6+` : ''}
+            </div>
           </td>
           <td class="sticky-col-2 bg-slate-100 py-2 px-2 border-r border-slate-300 text-center text-[11px] text-slate-600">
-            Nightly Check
+            Nightly Target
           </td>
       `;
 
@@ -1594,10 +2063,12 @@
         const badgeCls = cov.nightOk
           ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
           : 'bg-red-100 text-red-800 border-red-300 animate-pulse';
+        const senNote = cov.reqSeniorNight > 0 ? ` | Senior B6+: ${cov.seniorNight}/${cov.reqSeniorNight}` : '';
         footHtml += `
           <td class="p-1.5 text-center border-r border-slate-200">
-            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls}" title="Night Core Staff: ${cov.nightCore} / Min ${state.coverageRules.minNightCore}">
-              ${cov.nightCore}/${state.coverageRules.minNightCore}
+            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls} flex flex-col items-center justify-center leading-tight" title="Night Core Staff: ${cov.nightCore}/${cov.reqNightCore}${senNote}">
+              <span>${cov.nightCore}/${cov.reqNightCore}</span>
+              ${cov.reqSeniorNight > 0 ? `<span class="text-[9px] font-semibold ${cov.seniorNightOk ? 'opacity-75' : 'text-red-900 underline'}">B6+:${cov.seniorNight}</span>` : ''}
             </div>
           </td>
         `;
@@ -1629,8 +2100,10 @@
     function renderStaffTab() {
       const grid = document.getElementById('staff-cards-grid');
       const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const sortedStaff = getSortedAndFilteredStaff(false);
 
-      grid.innerHTML = state.staff.map(st => {
+      grid.innerHTML = sortedStaff.map(st => {
+        const bInfo = getBandInfo(st.band);
         const offDaysText = (st.flex.unavailableDays && st.flex.unavailableDays.length > 0)
           ? st.flex.unavailableDays.map(d => dNames[d]).join(', ')
           : 'None';
@@ -1640,8 +2113,11 @@
             <div class="space-y-2">
               <div class="flex items-start justify-between gap-2">
                 <div>
-                  <h3 class="font-bold text-slate-800 text-sm">${st.name}</h3>
-                  <p class="text-xs text-slate-500">${st.role}</p>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded-md text-xs font-extrabold border ${bInfo.bg} ${bInfo.text} ${bInfo.border}">${bInfo.label}</span>
+                    <h3 class="font-bold text-slate-800 text-sm">${st.name}</h3>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">${st.role}</p>
                 </div>
                 <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${st.isCore ? 'bg-blue-100 text-nhs-dark' : 'bg-slate-100 text-slate-700'}">
                   ${st.isCore ? 'Core Staff' : 'Support Staff'}
@@ -1762,6 +2238,33 @@
           </div>
         `;
       }).join('');
+
+      // Render Per-Day Coverage Summary Cards in Shifts Tab
+      const covSummaryEl = document.getElementById('shifts-tab-coverage-summary');
+      if (covSummaryEl) {
+        const dayOrder = [
+          { dow: 1, name: 'Monday' },
+          { dow: 2, name: 'Tuesday' },
+          { dow: 3, name: 'Wednesday' },
+          { dow: 4, name: 'Thursday' },
+          { dow: 5, name: 'Friday' },
+          { dow: 6, name: 'Saturday' },
+          { dow: 0, name: 'Sunday' }
+        ];
+        covSummaryEl.innerHTML = dayOrder.map(item => {
+          const spec = state.coverageRules.perDay[item.dow] || { day: 3, night: 2 };
+          const isWknd = item.dow === 0 || item.dow === 6;
+          return `
+            <div class="p-2.5 rounded-xl border ${isWknd ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50 border-slate-200'} flex flex-col justify-between">
+              <div class="font-bold text-slate-800 text-xs">${item.name}</div>
+              <div class="mt-1.5 space-y-0.5 text-[11px]">
+                <div class="flex items-center justify-between"><span class="text-slate-500">☀️ Day Core:</span> <strong>${spec.day}</strong></div>
+                <div class="flex items-center justify-between"><span class="text-slate-500">🌙 Night Core:</span> <strong>${spec.night}</strong></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     // =========================================================
@@ -1780,7 +2283,9 @@
       let totalNightShifts = 0;
       let totalLeaveDays = 0;
 
-      const staffRowsHtml = state.staff.map(st => {
+      const sortedStaff = getSortedAndFilteredStaff(false);
+      const staffRowsHtml = sortedStaff.map(st => {
+        const bInfo = getBandInfo(st.band);
         const wkHrs = [0, 1, 2, 3].map(w => getStaffWeekHours(st.id, state.currentBlock * 4 + w));
         const blockPlanned = wkHrs.reduce((a, b) => a + b, 0);
         const blockTarget = st.weeklyHours * 4;
@@ -1814,8 +2319,11 @@
         return `
           <tr class="hover:bg-slate-50">
             <td class="py-2.5 px-3 font-bold text-slate-800">${st.name}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[11px] font-extrabold border ${bInfo.bg} ${bInfo.text} ${bInfo.border}">${bInfo.label}</span>
+            </td>
             <td class="py-2.5 px-3 text-slate-600">
-              ${st.role.split('(')[0]}
+              ${st.role}
               ${st.isCore ? `<span class="ml-1 text-[10px] font-bold bg-blue-100 text-nhs-dark px-1.5 py-0.5 rounded">CORE</span>` : ''}
             </td>
             <td class="py-2.5 px-3 text-center font-medium">${wkHrs[0].toFixed(1)}h</td>
@@ -1861,8 +2369,8 @@
               }
             </div>
             <div class="mt-1.5 flex items-center justify-between text-[11px]">
-              <span class="${cov.dayOk ? 'text-slate-600' : 'text-red-700 font-bold'}">☀️ Day Core: ${cov.dayCore}/${state.coverageRules.minDayCore}</span>
-              <span class="${cov.nightOk ? 'text-slate-600' : 'text-red-700 font-bold'}">🌙 Night Core: ${cov.nightCore}/${state.coverageRules.minNightCore}</span>
+              <span class="${cov.dayOk ? 'text-slate-600' : 'text-red-700 font-bold'}">☀️ Day: ${cov.dayCore}/${cov.reqDayCore}</span>
+              <span class="${cov.nightOk ? 'text-slate-600' : 'text-red-700 font-bold'}">🌙 Night: ${cov.nightCore}/${cov.reqNightCore}</span>
             </div>
           </div>
         `;
@@ -1882,7 +2390,7 @@
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div class="text-xs font-semibold uppercase text-slate-400">Safe Core Coverage Rate</div>
           <div class="text-2xl font-bold ${fullyCoveredDays === 28 ? 'text-emerald-600' : 'text-amber-600'} mt-1">${covPct}% (${fullyCoveredDays}/28 Days)</div>
-          <div class="text-xs text-slate-500 mt-1">Min ${state.coverageRules.minDayCore} Day Core & ${state.coverageRules.minNightCore} Night Core</div>
+          <div class="text-xs text-slate-500 mt-1">Wkday ${state.coverageRules.minDayCore}D/${state.coverageRules.minNightCore}N • Wkend ${state.coverageRules.weekendDayCore}D/${state.coverageRules.weekendNightCore}N</div>
         </div>
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div class="text-xs font-semibold uppercase text-slate-400">Planned Shifts in Block</div>
@@ -1936,14 +2444,114 @@
       showToast('Horizon start date updated', 'info');
     }
 
-    function updateCoverageRules() {
-      const dayMin = Math.max(1, Number(document.getElementById('min-day-core-input').value) || 3);
-      const nightMin = Math.max(1, Number(document.getElementById('min-night-core-input').value) || 2);
-      state.coverageRules.minDayCore = dayMin;
-      state.coverageRules.minNightCore = nightMin;
+    function updateRosterSort(sortVal) {
+      state.rosterSort = sortVal;
       saveState();
       renderAll();
-      showToast(`Minimum Core Coverage set to ${dayMin} Day / ${nightMin} Night`, 'success');
+    }
+
+    function updateRosterFilter(filterVal) {
+      state.rosterBandFilter = filterVal;
+      saveState();
+      renderAll();
+    }
+
+    function toggleHeaderBandSort() {
+      state.rosterSort = state.rosterSort === 'BAND_DESC' ? 'BAND_ASC' : 'BAND_DESC';
+      saveState();
+      renderAll();
+      showToast(`Sorted staff by ${state.rosterSort === 'BAND_DESC' ? 'Band (High → Low)' : 'Band (Low → High)'}`, 'info');
+    }
+
+    function updateQuickCoverageRules() {
+      ensureCoverageRulesStructure();
+      const wkDay = Math.max(1, Number(document.getElementById('min-day-core-input').value) || 3);
+      const wkNight = Math.max(1, Number(document.getElementById('min-night-core-input').value) || 2);
+      const wkndDay = Math.max(1, Number(document.getElementById('min-wknd-day-core-input').value) || 3);
+      const wkndNight = Math.max(1, Number(document.getElementById('min-wknd-night-core-input').value) || 2);
+
+      state.coverageRules.minDayCore = wkDay;
+      state.coverageRules.minNightCore = wkNight;
+      state.coverageRules.weekendDayCore = wkndDay;
+      state.coverageRules.weekendNightCore = wkndNight;
+
+      // Sync Mon-Fri and Sat-Sun per-day rules
+      for (let d = 1; d <= 5; d++) {
+        state.coverageRules.perDay[d] = { day: wkDay, night: wkNight };
+      }
+      state.coverageRules.perDay[6] = { day: wkndDay, night: wkndNight };
+      state.coverageRules.perDay[0] = { day: wkndDay, night: wkndNight };
+
+      saveState();
+      renderAll();
+      showToast(`Updated Coverage: Wkday ${wkDay}D/${wkNight}N, Wkend ${wkndDay}D/${wkndNight}N`, 'success');
+    }
+
+    function openCoverageModal() {
+      ensureCoverageRulesStructure();
+      const r = state.coverageRules;
+      document.getElementById('cov-modal-wkday-day').value = r.minDayCore;
+      document.getElementById('cov-modal-wkday-night').value = r.minNightCore;
+      document.getElementById('cov-modal-wkend-day').value = r.weekendDayCore;
+      document.getElementById('cov-modal-wkend-night').value = r.weekendNightCore;
+      document.getElementById('cov-modal-senior-day').value = r.minSeniorDay || 0;
+      document.getElementById('cov-modal-senior-night').value = r.minSeniorNight || 0;
+
+      for (let d = 0; d <= 6; d++) {
+        const spec = r.perDay[d] || { day: r.minDayCore, night: r.minNightCore };
+        document.getElementById(`cov-day-${d}`).value = spec.day;
+        document.getElementById(`cov-night-${d}`).value = spec.night;
+      }
+
+      const modal = document.getElementById('coverage-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeCoverageModal() {
+      const modal = document.getElementById('coverage-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function applyWeekdayWeekendDefaultsToDays() {
+      const wkD = Math.max(1, Number(document.getElementById('cov-modal-wkday-day').value) || 3);
+      const wkN = Math.max(1, Number(document.getElementById('cov-modal-wkday-night').value) || 2);
+      const wknD = Math.max(1, Number(document.getElementById('cov-modal-wkend-day').value) || 3);
+      const wknN = Math.max(1, Number(document.getElementById('cov-modal-wkend-night').value) || 2);
+
+      for (let d = 1; d <= 5; d++) {
+        document.getElementById(`cov-day-${d}`).value = wkD;
+        document.getElementById(`cov-night-${d}`).value = wkN;
+      }
+      [6, 0].forEach(d => {
+        document.getElementById(`cov-day-${d}`).value = wknD;
+        document.getElementById(`cov-night-${d}`).value = wknN;
+      });
+    }
+
+    function handleSaveCoverageModal(e) {
+      e.preventDefault();
+      ensureCoverageRulesStructure();
+      const r = state.coverageRules;
+      r.minDayCore = Math.max(1, Number(document.getElementById('cov-modal-wkday-day').value) || 3);
+      r.minNightCore = Math.max(1, Number(document.getElementById('cov-modal-wkday-night').value) || 2);
+      r.weekendDayCore = Math.max(1, Number(document.getElementById('cov-modal-wkend-day').value) || 3);
+      r.weekendNightCore = Math.max(1, Number(document.getElementById('cov-modal-wkend-night').value) || 2);
+      r.minSeniorDay = Math.max(0, Number(document.getElementById('cov-modal-senior-day').value) || 0);
+      r.minSeniorNight = Math.max(0, Number(document.getElementById('cov-modal-senior-night').value) || 0);
+
+      for (let d = 0; d <= 6; d++) {
+        r.perDay[d] = {
+          day: Math.max(1, Number(document.getElementById(`cov-day-${d}`).value) || 1),
+          night: Math.max(1, Number(document.getElementById(`cov-night-${d}`).value) || 1)
+        };
+      }
+
+      saveState();
+      closeCoverageModal();
+      renderAll();
+      showToast('Saved custom Day, Night & Seniority coverage rules', 'success');
     }
 
     // Cell Modal Functions
@@ -1952,7 +2560,7 @@
       const st = state.staff.find(s => s.id === staffId);
       if (!st) return;
 
-      document.getElementById('cell-modal-title').textContent = `${st.name}`;
+      document.getElementById('cell-modal-title').textContent = `${st.name} (${st.band || 'Band 5'})`;
       document.getElementById('cell-modal-subtitle').textContent = `${formatDisplayDate(dateStr)} (${dateStr}) • ${st.role}`;
 
       // Show Flexible Working Banner
@@ -2051,10 +2659,11 @@
       if (staffId) {
         const st = state.staff.find(s => s.id === staffId);
         if (!st) return;
-        document.getElementById('staff-modal-title').textContent = `Edit ${st.name}`;
+        document.getElementById('staff-modal-title').textContent = `Edit ${st.name} (${st.band || 'Band 5'})`;
         document.getElementById('staff-id-input').value = st.id;
         document.getElementById('staff-name-input').value = st.name;
-        document.getElementById('staff-role-input').value = st.role;
+        document.getElementById('staff-band-input').value = st.band || inferBandFromRole(st.role);
+        document.getElementById('staff-role-input').value = st.role.replace(/\s*\(Band\s*\d+[a-z]?\)/i, '').trim();
         document.getElementById('staff-hours-input').value = st.weeklyHours;
         document.getElementById('staff-core-input').checked = st.isCore;
         document.getElementById('staff-flex-pattern').value = st.flex.pattern || 'ALL';
@@ -2068,7 +2677,8 @@
         document.getElementById('staff-modal-title').textContent = 'Add Hospital Staff Member';
         document.getElementById('staff-id-input').value = '';
         document.getElementById('staff-name-input').value = '';
-        document.getElementById('staff-role-input').value = 'Registered Staff Nurse (Band 5)';
+        document.getElementById('staff-band-input').value = 'Band 5';
+        document.getElementById('staff-role-input').value = 'Registered Staff Nurse';
         document.getElementById('staff-hours-input').value = '37.5';
         document.getElementById('staff-core-input').checked = true;
         document.getElementById('staff-flex-pattern').value = 'ALL';
@@ -2090,6 +2700,7 @@
       e.preventDefault();
       const id = document.getElementById('staff-id-input').value || 'st-' + Date.now();
       const name = document.getElementById('staff-name-input').value.trim();
+      const band = document.getElementById('staff-band-input').value || 'Band 5';
       const role = document.getElementById('staff-role-input').value;
       const weeklyHours = Number(document.getElementById('staff-hours-input').value) || 37.5;
       const isCore = document.getElementById('staff-core-input').checked;
@@ -2104,6 +2715,7 @@
       const staffObj = {
         id,
         name,
+        band,
         role,
         weeklyHours,
         isCore,
@@ -2113,10 +2725,10 @@
       const existingIdx = state.staff.findIndex(s => s.id === id);
       if (existingIdx >= 0) {
         state.staff[existingIdx] = staffObj;
-        showToast(`Updated ${name}'s profile & flexible working agreement`, 'success');
+        showToast(`Updated ${name} (${band}) & flexible working agreement`, 'success');
       } else {
         state.staff.push(staffObj);
-        showToast(`Added ${name} to hospital ward team`, 'success');
+        showToast(`Added ${name} (${band}) to hospital ward team`, 'success');
       }
 
       saveState();
@@ -2332,6 +2944,7 @@
       }
 
       const wb = XLSX.utils.book_new();
+      const orderedStaff = getSortedAndFilteredStaff(false);
 
       // Generate sheets for each 4-week block (Block 1, Block 2, Block 3)
       for (let b = 0; b < 3; b++) {
@@ -2341,6 +2954,7 @@
 
         const headerRow = [
           'Staff Name',
+          'NHS Band',
           'Role / Grade',
           'Core Staff',
           'Contracted Wk Hrs',
@@ -2351,7 +2965,7 @@
 
         const rows = [headerRow];
 
-        state.staff.forEach(st => {
+        orderedStaff.forEach(st => {
           let planned = 0;
           const cellValues = dates.map(dStr => {
             const req = state.requests[`${st.id}_${dStr}`];
@@ -2370,6 +2984,7 @@
 
           rows.push([
             st.name,
+            st.band || 'Band 5',
             st.role,
             st.isCore ? 'YES' : 'NO',
             st.weeklyHours,
@@ -2379,23 +2994,29 @@
           ]);
         });
 
-        // Add Daily Core Coverage rows at bottom of roster sheet
+        // Add Daily Core Coverage & Target rows at bottom of roster sheet
         rows.push([]);
         rows.push([
-          'DAY CORE STAFF COUNT',
-          `Min Target: ${state.coverageRules.minDayCore}`,
-          '', '', '', '',
-          ...dates.map(d => countDailyCoreCoverage(d).dayCore)
+          'DAY CORE STAFF (ACTUAL / TARGET)',
+          `Wkday ${state.coverageRules.minDayCore} / Wkend ${state.coverageRules.weekendDayCore}`,
+          '', '', '', '', '',
+          ...dates.map(d => {
+            const c = countDailyCoreCoverage(d);
+            return `${c.dayCore}/${c.reqDayCore}`;
+          })
         ]);
         rows.push([
-          'NIGHT CORE STAFF COUNT',
-          `Min Target: ${state.coverageRules.minNightCore}`,
-          '', '', '', '',
-          ...dates.map(d => countDailyCoreCoverage(d).nightCore)
+          'NIGHT CORE STAFF (ACTUAL / TARGET)',
+          `Wkday ${state.coverageRules.minNightCore} / Wkend ${state.coverageRules.weekendNightCore}`,
+          '', '', '', '', '',
+          ...dates.map(d => {
+            const c = countDailyCoreCoverage(d);
+            return `${c.nightCore}/${c.reqNightCore}`;
+          })
         ]);
         rows.push([
           'COVERAGE STATUS',
-          '', '', '', '', '',
+          '', '', '', '', '', '',
           ...dates.map(d => countDailyCoreCoverage(d).allOk ? 'OK' : 'SHORTFALL')
         ]);
 
@@ -2406,12 +3027,13 @@
       // Sheet 4: Staff & Flexible Working Agreements
       const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const staffSheetRows = [
-        ['Staff ID', 'Full Name', 'Role / Band', 'Contracted Weekly Hours', 'Core Staff', 'Flex Shift Restriction', 'Unavailable Weekdays', 'Max Consecutive Shifts', 'Flexible Working Notes']
+        ['Staff ID', 'Full Name', 'NHS Band', 'Role', 'Contracted Weekly Hours', 'Core Staff', 'Flex Shift Restriction', 'Unavailable Weekdays', 'Max Consecutive Shifts', 'Flexible Working Notes']
       ];
-      state.staff.forEach(st => {
+      orderedStaff.forEach(st => {
         staffSheetRows.push([
           st.id,
           st.name,
+          st.band || 'Band 5',
           st.role,
           st.weeklyHours,
           st.isCore ? 'Yes' : 'No',
@@ -2426,14 +3048,15 @@
 
       // Sheet 5: Hours & Coverage Summary Report (Across all 12 Weeks)
       const reportRows = [
-        ['Staff Name', 'Role', 'Weekly Contract (h)', '12-Wk Target (h)', 'Wk 1', 'Wk 2', 'Wk 3', 'Wk 4', 'Wk 5', 'Wk 6', 'Wk 7', 'Wk 8', 'Wk 9', 'Wk 10', 'Wk 11', 'Wk 12', '12-Wk Total Planned (h)', 'Variance (h)']
+        ['Staff Name', 'NHS Band', 'Role', 'Weekly Contract (h)', '12-Wk Target (h)', 'Wk 1', 'Wk 2', 'Wk 3', 'Wk 4', 'Wk 5', 'Wk 6', 'Wk 7', 'Wk 8', 'Wk 9', 'Wk 10', 'Wk 11', 'Wk 12', '12-Wk Total Planned (h)', 'Variance (h)']
       ];
-      state.staff.forEach(st => {
+      orderedStaff.forEach(st => {
         const wkHours = Array.from({ length: 12 }, (_, w) => getStaffWeekHours(st.id, w));
         const total12 = wkHours.reduce((a, b) => a + b, 0);
         const target12 = st.weeklyHours * 12;
         reportRows.push([
           st.name,
+          st.band || 'Band 5',
           st.role,
           st.weeklyHours,
           target12,
