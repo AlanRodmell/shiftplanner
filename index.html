@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediRoster | Hospital Shift Planning & Auto-Scheduling PoC</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS (xlsx) CDN for real multi-sheet Excel Workbook export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            nhs: {
+              blue: '#005EB8',
+              dark: '#003087',
+              bright: '#0072CE',
+              light: '#E8EDEE',
+              green: '#009639',
+              amber: '#ED8B00',
+              red: '#DA291C'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Custom scrollbar for wide roster tables */
+    .roster-scroll::-webkit-scrollbar { height: 10px; width: 8px; }
+    .roster-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
+    .roster-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+    .roster-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .sticky-col-1 { position: sticky; left: 0; z-index: 20; }
+    .sticky-col-2 { position: sticky; left: 210px; z-index: 20; }
+    @media (max-width: 768px) {
+      .sticky-col-2 { position: static; }
+    }
+    .cell-hover:hover { transform: translateY(-1px); transition: all 0.12s ease; }
+  </style>
+</head>
+<body class="min-h-full flex flex-col text-slate-800">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-nhs-dark text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-nhs-blue flex items-center justify-center shadow-inner border border-blue-400/30">
+          <i class="fa-solid fa-hospital-user text-xl text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-bold tracking-tight">MediRoster <span class="font-normal text-blue-200 text-sm">Acute Ward e-Rostering PoC</span></h1>
+            <span class="hidden sm:inline-block text-[11px] uppercase tracking-wider font-semibold bg-blue-500/30 border border-blue-300/30 px-2 py-0.5 rounded-full text-blue-100">GitHub Pages Ready</span>
+          </div>
+          <p class="text-xs text-blue-200 hidden sm:block">12-Week Horizon (3x 4-Week Blocks) • Flexible Working Engine • Core Safe-Staffing Checks</p>
+        </div>
+      </div>
+
+      <!-- Global Action Toolbar -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openAutoScheduleModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow flex items-center gap-2 transition">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Auto-Suggest Shifts</span>
+        </button>
+
+        <button onclick="exportToExcelWorkbook()" class="bg-white hover:bg-blue-50 text-nhs-dark font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-lg shadow flex items-center gap-2 transition">
+          <i class="fa-solid fa-file-excel text-emerald-700"></i>
+          <span>Export Excel (.xlsx)</span>
+        </button>
+
+        <div class="relative group">
+          <button class="bg-blue-800/80 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-2 rounded-lg border border-blue-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-gear"></i>
+            <span class="hidden md:inline">Data</span>
+          </button>
+          <div class="hidden group-hover:block absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 text-slate-700 text-xs z-50">
+            <button onclick="exportJsonBackup()" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-download text-slate-500"></i> Save JSON Backup
+            </button>
+            <label class="w-full text-left px-3.5 py-2 hover:bg-slate-100 flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-upload text-slate-500"></i> Load JSON Backup
+              <input type="file" accept=".json" class="hidden" onchange="importJsonBackup(event)" />
+            </label>
+            <hr class="my-1 border-slate-200" />
+            <button onclick="confirmResetDemo()" class="w-full text-left px-3.5 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2 font-medium">
+              <i class="fa-solid fa-rotate-left"></i> Reset Hospital Demo Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-nhs-blue/90 border-t border-blue-400/20">
+      <div class="max-w-[1600px] mx-auto px-4 sm:px-6 flex overflow-x-auto no-scrollbar gap-1 sm:gap-2 pt-1.5">
+        <button onclick="switchTab('roster')" id="tab-btn-roster" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg flex items-center gap-2 whitespace-nowrap bg-slate-50 text-nhs-dark shadow-sm">
+          <i class="fa-solid fa-calendar-days"></i> 4-Week Roster Planner
+        </button>
+        <button onclick="switchTab('staff')" id="tab-btn-staff" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap text-blue-100 hover:bg-white/10">
+          <i class="fa-solid fa-user-nurse"></i> Staff & Flexible Working <span id="badge-staff-count" class="bg-blue-900/60 text-white text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+        </button>
+        <button onclick="switchTab('requests')" id="tab-btn-requests" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap text-blue-100 hover:bg-white/10">
+          <i class="fa-solid fa-umbrella-beach"></i> Day Off & Leave Requests <span id="badge-req-count" class="bg-blue-900/60 text-white text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+        </button>
+        <button onclick="switchTab('shifts')" id="tab-btn-shifts" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap text-blue-100 hover:bg-white/10">
+          <i class="fa-solid fa-clock"></i> Shift Patterns & Rules
+        </button>
+        <button onclick="switchTab('reports')" id="tab-btn-reports" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap text-blue-100 hover:bg-white/10">
+          <i class="fa-solid fa-chart-pie"></i> Reports & Analytics
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
+
+    <!-- Top Horizon & Coverage Control Bar (Visible across tabs for context) -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-4">
+      <!-- Left: 3-Month Horizon & 4-Week Block Selector -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Horizon Start (Monday)</label>
+          <input type="date" id="horizon-start-input" onchange="updateHorizonStartDate(this.value)" class="mt-0.5 text-xs sm:text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">4-Week Block (Up to 3 Months)</label>
+          <div class="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100 mt-0.5">
+            <button onclick="selectBlock(0)" id="block-btn-0" class="px-3 py-1 text-xs font-semibold rounded-md transition">Block 1 (Wks 1–4)</button>
+            <button onclick="selectBlock(1)" id="block-btn-1" class="px-3 py-1 text-xs font-semibold rounded-md transition">Block 2 (Wks 5–8)</button>
+            <button onclick="selectBlock(2)" id="block-btn-2" class="px-3 py-1 text-xs font-semibold rounded-md transition">Block 3 (Wks 9–12)</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">Week View Filter</label>
+          <div class="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100 mt-0.5">
+            <button onclick="selectWeekFilter('all')" id="wk-btn-all" class="px-2.5 py-1 text-xs font-semibold rounded-md transition">All 4 Weeks (28d)</button>
+            <button onclick="selectWeekFilter(0)" id="wk-btn-0" class="px-2.5 py-1 text-xs font-semibold rounded-md transition">Wk 1</button>
+            <button onclick="selectWeekFilter(1)" id="wk-btn-1" class="px-2.5 py-1 text-xs font-semibold rounded-md transition">Wk 2</button>
+            <button onclick="selectWeekFilter(2)" id="wk-btn-2" class="px-2.5 py-1 text-xs font-semibold rounded-md transition">Wk 3</button>
+            <button onclick="selectWeekFilter(3)" id="wk-btn-3" class="px-2.5 py-1 text-xs font-semibold rounded-md transition">Wk 4</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Minimum Core Coverage Quick Status & Config -->
+      <div class="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+          <span class="text-xs font-medium text-slate-600">Min Day Core:</span>
+          <input type="number" min="1" max="15" id="min-day-core-input" onchange="updateCoverageRules()" class="w-12 text-center text-xs font-bold border border-slate-300 rounded-md py-1 bg-white" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+          <span class="text-xs font-medium text-slate-600">Min Night Core:</span>
+          <input type="number" min="1" max="15" id="min-night-core-input" onchange="updateCoverageRules()" class="w-12 text-center text-xs font-bold border border-slate-300 rounded-md py-1 bg-white" />
+        </div>
+        <div class="h-5 w-px bg-slate-300 hidden sm:block"></div>
+        <div id="block-coverage-pill" class="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 1: 4-WEEK ROSTER PLANNER               -->
+    <!-- ========================================== -->
+    <section id="tab-roster" class="space-y-4">
+      <!-- Legend & Quick Filter Bar -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2" id="shift-legend-bar">
+          <!-- Dynamic Shift Legend Badges -->
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-500"><i class="fa-solid fa-hand-pointer mr-1"></i>Click any cell to assign shift or leave</span>
+          <button onclick="clearCurrentBlockShifts()" class="text-xs text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-lg font-medium transition">
+            <i class="fa-regular fa-trash-can mr-1"></i>Clear Block Shifts
+          </button>
+        </div>
+      </div>
+
+      <!-- Roster Table Wrapper -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="roster-scroll overflow-x-auto">
+          <table class="w-full border-collapse text-left">
+            <thead id="roster-thead">
+              <!-- Populated by JS -->
+            </thead>
+            <tbody id="roster-tbody" class="divide-y divide-slate-200 text-xs">
+              <!-- Populated by JS -->
+            </tbody>
+            <tfoot id="roster-tfoot">
+              <!-- Daily Day & Night Core Coverage Row -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: STAFF & FLEXIBLE WORKING AGREEMENTS -->
+    <!-- ========================================== -->
+    <section id="tab-staff" class="hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div>
+          <h2 class="text-base font-bold text-slate-800">Hospital Ward Team & Flexible Working Agreements</h2>
+          <p class="text-xs text-slate-500">Manage contracted weekly hours, core competency status, and individual Flexible Working Agreements that restrict auto-suggested & manual shifts.</p>
+        </div>
+        <button onclick="openStaffModal()" class="bg-nhs-blue hover:bg-nhs-dark text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow flex items-center gap-2">
+          <i class="fa-solid fa-user-plus"></i> Add Staff Member
+        </button>
+      </div>
+
+      <div id="staff-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: DAY OFF & LEAVE REQUESTS            -->
+    <!-- ========================================== -->
+    <section id="tab-requests" class="hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Add Day Off Request Form -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-fit space-y-4">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">
+              <i class="fa-solid fa-calendar-xmark"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Log Day Off / Leave Request</h3>
+              <p class="text-[11px] text-slate-500">Protected during shift auto-suggestion</p>
+            </div>
+          </div>
+
+          <form onsubmit="handleAddLeaveRequest(event)" class="space-y-3 text-xs sm:text-sm">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Staff Member</label>
+              <select id="req-staff-id" required class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none"></select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Start Date</label>
+                <input type="date" id="req-start-date" required class="w-full border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">End Date (Inclusive)</label>
+                <input type="date" id="req-end-date" required class="w-full border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Request Type</label>
+              <select id="req-type" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none">
+                <option value="DO">Requested Day Off (DO - Unpaid/Rota Rest)</option>
+                <option value="AL">Annual Leave (AL - Counts 7.5h towards contract)</option>
+                <option value="SL">Study / Training Leave (SL - Counts 7.5h)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Reason / Notes</label>
+              <input type="text" id="req-Reason" placeholder="e.g., Childcare, Family Wedding, ALS Course" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+            </div>
+
+            <button type="submit" class="w-full bg-nhs-blue hover:bg-nhs-dark text-white font-semibold py-2.5 rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-plus"></i> Add Request to Roster
+            </button>
+          </form>
+        </div>
+
+        <!-- Requests List Table -->
+        <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Active Day Off & Leave Requests</h3>
+              <p class="text-xs text-slate-500">All logged requests across the 12-week planning horizon</p>
+            </div>
+            <span id="req-total-pill" class="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-full">0 requests</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Staff Member</th>
+                  <th class="py-2.5 px-3">Type</th>
+                  <th class="py-2.5 px-3">Hours Credit</th>
+                  <th class="py-2.5 px-3">Notes</th>
+                  <th class="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="requests-table-body" class="divide-y divide-slate-100">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: SHIFT PATTERNS & DEFINITIONS (CRUD) -->
+    <!-- ========================================== -->
+    <section id="tab-shifts" class="hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Create / Edit Shift Pattern Form -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-fit space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 id="shift-form-title" class="text-sm font-bold text-slate-800">Create / Update Shift Pattern</h3>
+              <p class="text-[11px] text-slate-500">Define shift duration, timing, and core coverage category</p>
+            </div>
+            <button type="button" onclick="resetShiftForm()" class="text-xs text-nhs-blue hover:underline">Reset</button>
+          </div>
+
+          <form onsubmit="handleSaveShiftPattern(event)" class="space-y-3 text-xs sm:text-sm">
+            <input type="hidden" id="shift-edit-original-code" value="" />
+            <div class="grid grid-cols-3 gap-2.5">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Shift Code</label>
+                <input type="text" id="shift-code" maxlength="4" required placeholder="e.g. LD" class="w-full uppercase border border-slate-300 rounded-lg px-3 py-2 font-bold focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Shift Name</label>
+                <input type="text" id="shift-name" required placeholder="e.g. Long Day" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2.5">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Start Time</label>
+                <input type="time" id="shift-start" required value="07:00" class="w-full border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">End Time</label>
+                <input type="time" id="shift-end" required value="19:30" class="w-full border border-slate-300 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Paid Hours</label>
+                <input type="number" step="0.5" min="1" max="24" id="shift-hours" required value="11.5" class="w-full border border-slate-300 rounded-lg px-2.5 py-2 font-semibold focus:ring-2 focus:ring-nhs-blue focus:outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Coverage Category</label>
+              <select id="shift-category" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none">
+                <option value="DAY">Day Shift (Counts toward Day Core Coverage)</option>
+                <option value="NIGHT">Night Shift (Counts toward Night Core Coverage)</option>
+                <option value="SUPPORT">Support / Twilight / Mid (Hours only, non-core)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Badge Colour Theme</label>
+              <select id="shift-color" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-nhs-blue focus:outline-none">
+                <option value="blue">Clinical Blue (Long Day)</option>
+                <option value="indigo">Deep Indigo (Night Shift)</option>
+                <option value="sky">Sky Cyan (Early Shift)</option>
+                <option value="amber">Warm Amber (Late Shift)</option>
+                <option value="teal">Emerald Teal (Twilight / Mid)</option>
+                <option value="purple">Royal Purple (Specialist / Float)</option>
+              </select>
+            </div>
+
+            <button type="submit" class="w-full bg-nhs-blue hover:bg-nhs-dark text-white font-semibold py-2.5 rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i> Save Shift Pattern
+            </button>
+          </form>
+        </div>
+
+        <!-- Shift Patterns List & Safe Staffing Rules -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+            <h3 class="text-sm font-bold text-slate-800">Configured Hospital Shift Patterns</h3>
+            <p class="text-xs text-slate-500">Click Edit on any shift definition to modify duration or timing, or delete unused shifts.</p>
+            <div id="shift-patterns-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-nhs-dark flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved"></i> Safe-Staffing & Auto-Scheduler Rules
+              </h4>
+              <p class="text-xs text-slate-600">
+                • <strong>Day Core Coverage:</strong> Satisfied by staff marked as <em>Core Staff</em> working any <strong>DAY</strong> category shift (e.g., LD, E, L).<br/>
+                • <strong>Night Core Coverage:</strong> Satisfied by <em>Core Staff</em> working any <strong>NIGHT</strong> category shift (e.g., N).<br/>
+                • <strong>WTD Rest Protection:</strong> A staff member working a Night (N) shift will never be auto-assigned a Day shift the immediately following morning.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: REPORTS & ANALYTICS DASHBOARD       -->
+    <!-- ========================================== -->
+    <section id="tab-reports" class="hidden space-y-5">
+      <!-- KPI Summary Cards for Selected 4-Week Block -->
+      <div id="report-kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Staff Contracted vs Planned Hours Breakdown Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800" id="report-block-title">Staff Hours & Shift Breakdown (Current 4-Week Block)</h3>
+            <p class="text-xs text-slate-500">Comparison of weekly contracted hours against planned roster hours and flexible working compliance</p>
+          </div>
+          <button onclick="exportToExcelWorkbook()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> Download Full Excel Report
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase text-[11px]">
+                <th class="py-2.5 px-3">Staff Member</th>
+                <th class="py-2.5 px-3">Role & Core</th>
+                <th class="py-2.5 px-3 text-center">Wk 1 Hrs</th>
+                <th class="py-2.5 px-3 text-center">Wk 2 Hrs</th>
+                <th class="py-2.5 px-3 text-center">Wk 3 Hrs</th>
+                <th class="py-2.5 px-3 text-center">Wk 4 Hrs</th>
+                <th class="py-2.5 px-3 text-center">4-Wk Total / Target</th>
+                <th class="py-2.5 px-3 text-center">Variance</th>
+                <th class="py-2.5 px-3 text-center">Shift Mix (D / N / Leave)</th>
+                <th class="py-2.5 px-3">Flex Agreement Status</th>
+              </tr>
+            </thead>
+            <tbody id="report-staff-tbody" class="divide-y divide-slate-200">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Daily Coverage Audit Log -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <h3 class="text-sm font-bold text-slate-800">Daily Safe-Staffing Coverage Audit (28 Days in Block)</h3>
+        <div id="report-coverage-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 text-xs">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: CELL SHIFT / DAY OFF ASSIGNMENT                  -->
+  <!-- ========================================================= -->
+  <div id="cell-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-fadeIn">
+      <div class="bg-nhs-dark text-white px-5 py-3.5 flex items-center justify-between">
+        <div>
+          <h3 id="cell-modal-title" class="text-sm font-bold">Assign Shift or Day Off</h3>
+          <p id="cell-modal-subtitle" class="text-xs text-blue-200"></p>
+        </div>
+        <button onclick="closeCellModal()" class="text-blue-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs sm:text-sm max-h-[80vh] overflow-y-auto">
+        <!-- Flexible Working Agreement Notice for this Staff Member -->
+        <div id="cell-modal-flex-banner" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Available Shift Patterns</label>
+          <div id="cell-modal-shift-options" class="grid grid-cols-1 gap-2">
+            <!-- Populated dynamically with compatibility badges -->
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Day Off / Leave</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="assignCellEntry('DO', true)" class="border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 font-semibold py-2 px-2.5 rounded-xl text-xs flex flex-col items-center">
+              <span>DO</span>
+              <span class="text-[10px] font-normal">Day Off (0h)</span>
+            </button>
+            <button onclick="assignCellEntry('AL', true)" class="border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-semibold py-2 px-2.5 rounded-xl text-xs flex flex-col items-center">
+              <span>AL</span>
+              <span class="text-[10px] font-normal">Annual Leave (7.5h)</span>
+            </button>
+            <button onclick="assignCellEntry('SL', true)" class="border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold py-2 px-2.5 rounded-xl text-xs flex flex-col items-center">
+              <span>SL</span>
+              <span class="text-[10px] font-normal">Study Leave (7.5h)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-200 flex items-center justify-between">
+          <button onclick="clearCellEntry()" class="text-xs font-semibold text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg">
+            <i class="fa-regular fa-trash-can mr-1"></i>Clear Cell (Unassigned)
+          </button>
+          <button onclick="closeCellModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: STAFF & FLEXIBLE WORKING AGREEMENT EDITOR        -->
+  <!-- ========================================================= -->
+  <div id="staff-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden">
+      <div class="bg-nhs-dark text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 id="staff-modal-title" class="text-sm font-bold">Add / Edit Staff & Flexible Working Agreement</h3>
+        <button onclick="closeStaffModal()" class="text-blue-200 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form onsubmit="handleSaveStaff(event)" class="p-5 space-y-4 text-xs sm:text-sm max-h-[82vh] overflow-y-auto">
+        <input type="hidden" id="staff-id-input" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+            <input type="text" id="staff-name-input" required placeholder="e.g. Sarah Jenkins" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Role / Band</label>
+            <select id="staff-role-input" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+              <option value="Ward Sister / Charge Nurse (Band 7)">Ward Sister / Charge Nurse (Band 7)</option>
+              <option value="Junior Sister / Deputy (Band 6)">Junior Sister / Deputy (Band 6)</option>
+              <option value="Senior Staff Nurse (Band 5)">Senior Staff Nurse (Band 5)</option>
+              <option value="Registered Staff Nurse (Band 5)">Registered Staff Nurse (Band 5)</option>
+              <option value="Nursing Associate (Band 4)">Nursing Associate (Band 4)</option>
+              <option value="Senior Healthcare Assistant (Band 3)">Senior Healthcare Assistant (Band 3)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Contracted Weekly Hours</label>
+            <input type="number" step="0.5" min="7.5" max="48" id="staff-hours-input" required value="37.5" class="w-full border border-slate-300 rounded-lg px-3 py-2 font-bold" />
+          </div>
+          <div class="flex items-center pt-5">
+            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" id="staff-core-input" checked class="w-4 h-4 text-nhs-blue rounded focus:ring-nhs-blue" />
+              <span class="text-xs font-semibold text-slate-800">Counts toward Daily Core Staffing</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Flexible Working Agreement Section -->
+        <div class="bg-blue-50/60 border border-blue-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2 text-nhs-dark font-bold text-xs uppercase tracking-wider">
+            <i class="fa-solid fa-handshake-angle"></i>
+            <span>Flexible Working Agreement (Impacts Shifts Offered)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Shift Pattern Restriction</label>
+              <select id="staff-flex-pattern" class="w-full border border-slate-300 rounded-lg px-2.5 py-2 bg-white text-xs">
+                <option value="ALL">Unrestricted (All Day & Night Shifts)</option>
+                <option value="DAY_ONLY">Day Shifts Only (No Night Shifts)</option>
+                <option value="NIGHT_ONLY">Permanent Nights Only</option>
+                <option value="SHORT_SHIFTS_ONLY">Short Shifts Only (Early E / Late L - No 11.5h LD/N)</option>
+                <option value="LONG_SHIFTS_ONLY">11.5h Long Shifts Only (LD / N Only)</option>
+                <option value="EARLY_ONLY">Early Shifts Only (E 07:00-15:00)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Max Consecutive Shifts</label>
+              <input type="number" min="1" max="7" id="staff-flex-maxconsec" value="4" class="w-full border border-slate-300 rounded-lg px-2.5 py-2 bg-white text-xs font-bold" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Fixed Unavailable Days of the Week (Childcare / Carer / Study)</label>
+            <div class="grid grid-cols-7 gap-1.5 text-center">
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="1" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Mon</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="2" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Tue</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="3" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Wed</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="4" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Thu</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="5" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Fri</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="6" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Sat</span>
+              </label>
+              <label class="cursor-pointer border border-slate-300 rounded-lg py-1.5 bg-white hover:bg-slate-50 flex flex-col items-center">
+                <input type="checkbox" value="0" class="flex-day-cb mb-1" />
+                <span class="text-[11px] font-semibold">Sun</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Flexible Working Agreement Notes</label>
+            <input type="text" id="staff-flex-note" placeholder="e.g., Agreed no Wednesdays & Day shifts only per HR Flexible Working Policy" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 bg-white text-xs" />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onclick="closeStaffModal()" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-nhs-blue hover:bg-nhs-dark text-white font-semibold text-xs shadow">Save Staff Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 3: SMART AUTO-SUGGEST SHIFT ENGINE                  -->
+  <!-- ========================================================= -->
+  <div id="autoschedule-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden">
+      <div class="bg-emerald-700 text-white px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+          <div>
+            <h3 class="text-sm font-bold">Smart Shift Pattern Auto-Suggestion Engine</h3>
+            <p class="text-xs text-emerald-100">Week-by-week constraint-based hospital scheduling</p>
+          </div>
+        </div>
+        <button onclick="closeAutoScheduleModal()" class="text-emerald-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs sm:text-sm">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-950 space-y-1.5">
+          <div class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-list-check"></i> Optimization Priorities Applied Each Week:</div>
+          <ul class="list-disc list-inside space-y-1 text-slate-700">
+            <li>Respects all logged <strong>Day Off (DO)</strong>, <strong>Annual Leave (AL)</strong>, and <strong>Study Leave (SL)</strong> requests.</li>
+            <li>Enforces every staff member's <strong>Flexible Working Agreement</strong> (fixed unavailable weekdays, Day/Night/Short shift rules, max consecutive days).</li>
+            <li>Guarantees daily minimum <strong>Core Day (<span id="auto-modal-day-min">3</span>)</strong> and <strong>Core Night (<span id="auto-modal-night-min">2</span>)</strong> coverage first.</li>
+            <li>Balances remaining shifts week-by-week to match each person's <strong>weekly contracted hours</strong> without night-to-day turnarounds.</li>
+          </ul>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Select Planning Scope</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="auto-scope" value="2months" checked class="text-emerald-600 focus:ring-emerald-500" />
+              <div>
+                <div class="font-bold text-slate-800">2 Months in Advance (Weeks 1 to 8 / Blocks 1 & 2)</div>
+                <div class="text-xs text-slate-500">Recommended: Plans week-by-week across the next 8 weeks (56 days)</div>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="auto-scope" value="currentBlock" class="text-emerald-600 focus:ring-emerald-500" />
+              <div>
+                <div class="font-bold text-slate-800">Current 4-Week Block Only (28 Days)</div>
+                <div class="text-xs text-slate-500">Generates shifts for the currently selected 4-week block</div>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="auto-scope" value="full3months" class="text-emerald-600 focus:ring-emerald-500" />
+              <div>
+                <div class="font-bold text-slate-800">Full 3-Month Horizon (All 12 Weeks / 84 Days)</div>
+                <div class="text-xs text-slate-500">Plans all three 4-week blocks across the 3-month window</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <label class="flex items-center gap-2 cursor-pointer pt-1">
+          <input type="checkbox" id="auto-overwrite-existing" checked class="rounded text-emerald-600" />
+          <span class="text-xs text-slate-700 font-medium">Overwrite existing assigned working shifts in target weeks (Always preserves Day Off / Leave requests)</span>
+        </label>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+          <button onclick="closeAutoScheduleModal()" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs">Cancel</button>
+          <button onclick="runAutoSuggestEngine()" class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow flex items-center gap-2">
+            <i class="fa-solid fa-bolt"></i> Generate Suggested Shift Patterns
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Confirmation / Notification Toast -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Confirmation Dialog Modal (Replaces native confirm/alert) -->
+  <div id="confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h4 id="confirm-modal-title" class="text-sm font-bold text-slate-800">Confirm Action</h4>
+          <p id="confirm-modal-msg" class="text-xs text-slate-600 mt-0.5"></p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeConfirmModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">Cancel</button>
+        <button id="confirm-modal-action-btn" class="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- APPLICATION JAVASCRIPT                                    -->
+  <!-- ========================================================= -->
+  <script>
+    const STORAGE_KEY = 'MEDIROSTER_HOSPITAL_POC_V1';
+
+    // Theme map for shift badges
+    const COLOR_THEMES = {
+      blue:   { bg: 'bg-blue-100',   text: 'text-blue-900',   border: 'border-blue-300',   pill: 'bg-blue-600' },
+      indigo: { bg: 'bg-indigo-900', text: 'text-white',      border: 'border-indigo-700', pill: 'bg-indigo-700' },
+      sky:    { bg: 'bg-sky-100',    text: 'text-sky-900',    border: 'border-sky-300',    pill: 'bg-sky-500' },
+      amber:  { bg: 'bg-amber-100',  text: 'text-amber-900',  border: 'border-amber-300',  pill: 'bg-amber-500' },
+      teal:   { bg: 'bg-teal-100',   text: 'text-teal-900',   border: 'border-teal-300',   pill: 'bg-teal-600' },
+      purple: { bg: 'bg-purple-100', text: 'text-purple-900', border: 'border-purple-300', pill: 'bg-purple-600' }
+    };
+
+    const LEAVE_TYPES = {
+      DO: { code: 'DO', name: 'Requested Day Off', hours: 0,   bg: 'bg-rose-100',   text: 'text-rose-800',   border: 'border-rose-300' },
+      AL: { code: 'AL', name: 'Annual Leave',      hours: 7.5, bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300' },
+      SL: { code: 'SL', name: 'Study Leave',       hours: 7.5, bg: 'bg-emerald-100',text: 'text-emerald-800',border: 'border-emerald-300' }
+    };
+
+    // Global Application State
+    let state = {
+      activeTab: 'roster',
+      horizonStartDate: '2026-10-19', // Monday start of 12-week horizon
+      currentBlock: 0,                // 0 = Weeks 1-4, 1 = Weeks 5-8, 2 = Weeks 9-12
+      weekFilter: 'all',              // 'all' or 0, 1, 2, 3
+      coverageRules: {
+        minDayCore: 3,
+        minNightCore: 2
+      },
+      shifts: [],
+      staff: [],
+      requests: {},   // key: `${staffId}_${dateStr}` -> { staffId, dateStr, type: 'DO'|'AL'|'SL', reason }
+      assignments: {} // key: `${staffId}_${dateStr}` -> shiftCode ('LD', 'N', 'E', 'L', etc.)
+    };
+
+    // Active Cell selection for Modal
+    let activeCellContext = null;
+
+    // Helper: Get nearest Monday in YYYY-MM-DD
+    function getNextMondayStr() {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = (day === 0 ? -6 : 1) - day;
+      d.setDate(d.getDate() + diff);
+      return formatDateISO(d);
+    }
+
+    function formatDateISO(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDaysISO(dateStr, days) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + days);
+      return formatDateISO(dt);
+    }
+
+    function parseISODate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function formatDisplayDate(dateStr) {
+      const dt = parseISODate(dateStr);
+      return dt.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+    }
+
+    // Generate Default Realistic Hospital Team, Flexible Working Agreements, Shifts & Requests
+    function createDefaultHospitalData() {
+      const startMon = getNextMondayStr();
+      state.horizonStartDate = startMon;
+      state.currentBlock = 0;
+      state.weekFilter = 'all';
+      state.coverageRules = { minDayCore: 3, minNightCore: 2 };
+
+      state.shifts = [
+        { code: 'LD', name: 'Long Day',       start: '07:00', end: '19:30', hours: 11.5, category: 'DAY',     color: 'blue' },
+        { code: 'N',  name: 'Night Shift',    start: '19:00', end: '07:30', hours: 11.5, category: 'NIGHT',   color: 'indigo' },
+        { code: 'E',  name: 'Early Shift',    start: '07:00', end: '15:00', hours: 7.5,  category: 'DAY',     color: 'sky' },
+        { code: 'L',  name: 'Late Shift',     start: '13:30', end: '21:30', hours: 7.5,  category: 'DAY',     color: 'amber' },
+        { code: 'TW', name: 'Twilight Support',start: '16:00', end: '22:00', hours: 6.0, category: 'SUPPORT', color: 'teal' }
+      ];
+
+      state.staff = [
+        {
+          id: 'st-1',
+          name: 'Sr. Eleanor Vance',
+          role: 'Ward Sister / Charge Nurse (Band 7)',
+          weeklyHours: 37.5,
+          isCore: true,
+          flex: {
+            pattern: 'DAY_ONLY',
+            unavailableDays: [0, 6], // No weekends
+            maxConsecutive: 4,
+            note: 'Clinical leadership Day Shifts Mon-Fri only'
+          }
+        },
+        {
+          id: 'st-2',
+          name: 'Marcus Thorne',
+          role: 'Junior Sister / Deputy (Band 6)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'LONG_SHIFTS_ONLY',
+            unavailableDays: [],
+            maxConsecutive: 3,
+            note: '3x 11.5h Long Shifts (LD/N) per week'
+          }
+        },
+        {
+          id: 'st-3',
+          name: 'Priya Patel',
+          role: 'Junior Sister / Deputy (Band 6)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'ALL',
+            unavailableDays: [3], // Cannot work Wednesdays
+            maxConsecutive: 3,
+            note: 'Childcare agreement: Fixed off every Wednesday'
+          }
+        },
+        {
+          id: 'st-4',
+          name: 'David Okafor',
+          role: 'Senior Staff Nurse (Band 5)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'NIGHT_ONLY',
+            unavailableDays: [],
+            maxConsecutive: 3,
+            note: 'Permanent Night Shift agreement (3x 11.5h Nights/wk)'
+          }
+        },
+        {
+          id: 'st-5',
+          name: 'Hannah Abbott',
+          role: 'Registered Staff Nurse (Band 5)',
+          weeklyHours: 30.0,
+          isCore: true,
+          flex: {
+            pattern: 'SHORT_SHIFTS_ONLY',
+            unavailableDays: [0], // Off Sundays
+            maxConsecutive: 4,
+            note: 'Occupational Health: 7.5h Early/Late shifts only, no Sundays'
+          }
+        },
+        {
+          id: 'st-6',
+          name: 'Liam O\'Connor',
+          role: 'Registered Staff Nurse (Band 5)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'ALL',
+            unavailableDays: [],
+            maxConsecutive: 4,
+            note: 'Standard full rotational contract'
+          }
+        },
+        {
+          id: 'st-7',
+          name: 'Chloe Zhao',
+          role: 'Registered Staff Nurse (Band 5)',
+          weeklyHours: 23.0,
+          isCore: true,
+          flex: {
+            pattern: 'LONG_SHIFTS_ONLY',
+            unavailableDays: [1, 2], // Off Mon & Tue
+            maxConsecutive: 2,
+            note: 'Part-time 2x 11.5h shifts; University study Mon & Tue'
+          }
+        },
+        {
+          id: 'st-8',
+          name: 'Amira Al-Mansoor',
+          role: 'Registered Staff Nurse (Band 5)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'NIGHT_ONLY',
+            unavailableDays: [5], // Off Fridays
+            maxConsecutive: 3,
+            note: 'Night core rotation (Unavailable Fridays)'
+          }
+        },
+        {
+          id: 'st-9',
+          name: 'Benjy Lukaku',
+          role: 'Registered Staff Nurse (Band 5)',
+          weeklyHours: 34.5,
+          isCore: true,
+          flex: {
+            pattern: 'ALL',
+            unavailableDays: [],
+            maxConsecutive: 4,
+            note: 'Full rotational contract'
+          }
+        },
+        {
+          id: 'st-10',
+          name: 'Grace Galloway',
+          role: 'Nursing Associate (Band 4)',
+          weeklyHours: 37.5,
+          isCore: false,
+          flex: {
+            pattern: 'DAY_ONLY',
+            unavailableDays: [],
+            maxConsecutive: 5,
+            note: 'Day support shifts only'
+          }
+        },
+        {
+          id: 'st-11',
+          name: 'Tomasz Kowalski',
+          role: 'Senior Healthcare Assistant (Band 3)',
+          weeklyHours: 34.5,
+          isCore: false,
+          flex: {
+            pattern: 'ALL',
+            unavailableDays: [6], // No Saturdays
+            maxConsecutive: 4,
+            note: 'Carer agreement: Cannot work Saturdays'
+          }
+        }
+      ];
+
+      // Sample Day Off & Annual Leave requests
+      state.requests = {};
+      const sampleReqs = [
+        { staffId: 'st-2', offset: 4,  type: 'DO', reason: 'Family Anniversary' },
+        { staffId: 'st-2', offset: 5,  type: 'DO', reason: 'Family Anniversary Weekend' },
+        { staffId: 'st-6', offset: 7,  type: 'AL', reason: 'Annual Leave Week 2' },
+        { staffId: 'st-6', offset: 8,  type: 'AL', reason: 'Annual Leave Week 2' },
+        { staffId: 'st-6', offset: 9,  type: 'AL', reason: 'Annual Leave Week 2' },
+        { staffId: 'st-5', offset: 16, type: 'SL', reason: 'IV Cannulation Workshop' },
+        { staffId: 'st-9', offset: 22, type: 'DO', reason: 'Dental Appointment' },
+        { staffId: 'st-4', offset: 31, type: 'DO', reason: 'Requested Rota Rest (Block 2)' }
+      ];
+      sampleReqs.forEach(r => {
+        const dStr = addDaysISO(startMon, r.offset);
+        state.requests[`${r.staffId}_${dStr}`] = {
+          staffId: r.staffId,
+          dateStr: dStr,
+          type: r.type,
+          reason: r.reason
+        };
+      });
+
+      state.assignments = {};
+      // Automatically run 2-month (8 weeks) smart auto-suggestion on initial load so the PoC looks immediately populated!
+      autoSuggestWeeks(0, 7, true);
+      saveState();
+    }
+
+    // Load or initialize state
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.staff && parsed.shifts) {
+            state = parsed;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load saved state, initializing defaults', e);
+      }
+      createDefaultHospitalData();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error('Failed saving state to localStorage', e);
+      }
+    }
+
+    // =========================================================
+    // FLEXIBLE WORKING & SHIFT COMPATIBILITY VALIDATOR
+    // =========================================================
+    function checkShiftCompatibility(staffObj, shiftObj, dateStr, checkConsecutiveAndNightRest = true) {
+      const reasons = [];
+      const dt = parseISODate(dateStr);
+      const dow = dt.getDay(); // 0=Sun .. 6=Sat
+
+      // 1. Check Day Off / Leave request
+      const req = state.requests[`${staffObj.id}_${dateStr}`];
+      if (req) {
+        reasons.push(`Approved ${req.type} (${req.reason || 'Leave'})`);
+      }
+
+      // 2. Check Fixed Unavailable Days of Week
+      if (staffObj.flex.unavailableDays && staffObj.flex.unavailableDays.includes(dow)) {
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        reasons.push(`Flex Agreement: Unavailable on ${dayNames[dow]}s`);
+      }
+
+      // 3. Check Shift Pattern Restriction
+      const pat = staffObj.flex.pattern;
+      if (pat === 'DAY_ONLY' && shiftObj.category === 'NIGHT') {
+        reasons.push('Flex Agreement: Day Shifts Only');
+      } else if (pat === 'NIGHT_ONLY' && shiftObj.category !== 'NIGHT') {
+        reasons.push('Flex Agreement: Night Shifts Only');
+      } else if (pat === 'SHORT_SHIFTS_ONLY' && shiftObj.hours > 8.5) {
+        reasons.push('Flex Agreement: Short Shifts (≤8h) Only');
+      } else if (pat === 'LONG_SHIFTS_ONLY' && shiftObj.hours < 10) {
+        reasons.push('Flex Agreement: Long Shifts (11.5h) Only');
+      } else if (pat === 'EARLY_ONLY' && shiftObj.code !== 'E') {
+        reasons.push('Flex Agreement: Early (E) Shifts Only');
+      }
+
+      if (checkConsecutiveAndNightRest) {
+        // 4. Check Night-to-Day turnaround (Cannot work DAY/SUPPORT shift if worked NIGHT the day before)
+        const prevDate = addDaysISO(dateStr, -1);
+        const prevCode = state.assignments[`${staffObj.id}_${prevDate}`];
+        if (prevCode) {
+          const prevShift = getShiftByCode(prevCode);
+          if (prevShift && prevShift.category === 'NIGHT' && shiftObj.category !== 'NIGHT') {
+            reasons.push('WTD Rest Rule: Worked Night shift previous night');
+          }
+        }
+        // Also check if tomorrow is already a DAY shift and we are assigning a NIGHT shift today
+        const nextDate = addDaysISO(dateStr, 1);
+        const nextCode = state.assignments[`${staffObj.id}_${nextDate}`];
+        if (nextCode && shiftObj.category === 'NIGHT') {
+          const nextShift = getShiftByCode(nextCode);
+          if (nextShift && nextShift.category !== 'NIGHT') {
+            reasons.push('WTD Rest Rule: Assigned Day shift following morning');
+          }
+        }
+
+        // 5. Check Max Consecutive Working Days
+        const maxConsec = staffObj.flex.maxConsecutive || 4;
+        let streakBefore = 0;
+        for (let i = 1; i <= 7; i++) {
+          const dCheck = addDaysISO(dateStr, -i);
+          if (state.assignments[`${staffObj.id}_${dCheck}`]) streakBefore++;
+          else break;
+        }
+        let streakAfter = 0;
+        for (let i = 1; i <= 7; i++) {
+          const dCheck = addDaysISO(dateStr, i);
+          if (state.assignments[`${staffObj.id}_${dCheck}`]) streakAfter++;
+          else break;
+        }
+        if (streakBefore + 1 + streakAfter > maxConsec) {
+          reasons.push(`Exceeds max consecutive shifts (${maxConsec})`);
+        }
+      }
+
+      return {
+        valid: reasons.length === 0,
+        reasons
+      };
+    }
+
+    function getShiftByCode(code) {
+      return state.shifts.find(s => s.code === code) || null;
+    }
+
+    // Calculate total planned hours for a staff member in a specific 7-day week (weekIndex 0..11)
+    function getStaffWeekHours(staffId, weekIndex) {
+      const weekStart = addDaysISO(state.horizonStartDate, weekIndex * 7);
+      let total = 0;
+      for (let d = 0; d < 7; d++) {
+        const dateStr = addDaysISO(weekStart, d);
+        const req = state.requests[`${staffId}_${dateStr}`];
+        if (req && LEAVE_TYPES[req.type]) {
+          total += LEAVE_TYPES[req.type].hours;
+          continue;
+        }
+        const code = state.assignments[`${staffId}_${dateStr}`];
+        if (code) {
+          const sh = getShiftByCode(code);
+          if (sh) total += Number(sh.hours);
+        }
+      }
+      return total;
+    }
+
+    // Preferred shift for a staff member when filling Day or Night need
+    function choosePreferredShiftForStaff(staffObj, categoryNeeded, remainingWeeklyHours) {
+      const candidates = state.shifts.filter(s => s.category === categoryNeeded);
+      if (candidates.length === 0) return null;
+
+      // Filter by flexible working pattern
+      const compatible = candidates.filter(sh => {
+        const pat = staffObj.flex.pattern;
+        if (pat === 'DAY_ONLY' && sh.category === 'NIGHT') return false;
+        if (pat === 'NIGHT_ONLY' && sh.category !== 'NIGHT') return false;
+        if (pat === 'SHORT_SHIFTS_ONLY' && sh.hours > 8.5) return false;
+        if (pat === 'LONG_SHIFTS_ONLY' && sh.hours < 10) return false;
+        if (pat === 'EARLY_ONLY' && sh.code !== 'E') return false;
+        return true;
+      });
+
+      if (compatible.length === 0) return null;
+
+      // Pick shift whose hours best fit remainingWeeklyHours (allow up to +4h tolerance so 3x11.5 = 34.5h or 37.5h contracts work cleanly)
+      compatible.sort((a, b) => {
+        const diffA = Math.abs(remainingWeeklyHours - a.hours);
+        const diffB = Math.abs(remainingWeeklyHours - b.hours);
+        return diffA - diffB;
+      });
+
+      // If both Early (E) and Late (L) have identical hours (7.5h), randomize slightly for balanced E/L mix
+      if (compatible.length > 1 && compatible[0].hours === compatible[1].hours) {
+        return Math.random() < 0.55 ? compatible[0] : compatible[1];
+      }
+      return compatible[0];
+    }
+
+    // =========================================================
+    // SMART AUTO-SUGGEST SHIFT ENGINE (WEEK BY WEEK)
+    // =========================================================
+    function autoSuggestWeeks(startWeekIdx, endWeekIdx, overwriteExisting = true) {
+      let shiftsAssignedCount = 0;
+
+      for (let wk = startWeekIdx; wk <= endWeekIdx; wk++) {
+        const weekStart = addDaysISO(state.horizonStartDate, wk * 7);
+
+        // Step 0: Optionally clear existing shift assignments in this week (never clears requests)
+        if (overwriteExisting) {
+          for (let d = 0; d < 7; d++) {
+            const dateStr = addDaysISO(weekStart, d);
+            state.staff.forEach(st => {
+              delete state.assignments[`${st.id}_${dateStr}`];
+            });
+          }
+        }
+
+        // Step 1: Satisfy Daily Minimum Core NIGHT Coverage (e.g., 2 Core Staff per night)
+        for (let d = 0; d < 7; d++) {
+          const dateStr = addDaysISO(weekStart, d);
+          let currentNightCore = countDailyCoreCoverage(dateStr).nightCore;
+
+          while (currentNightCore < state.coverageRules.minNightCore) {
+            // Find eligible Core staff for Night shift sorted by most remaining weekly hours
+            const candidates = state.staff
+              .filter(st => st.isCore && !state.assignments[`${st.id}_${dateStr}`])
+              .map(st => {
+                const usedHrs = getStaffWeekHours(st.id, wk);
+                const remHrs = st.weeklyHours - usedHrs;
+                const shift = choosePreferredShiftForStaff(st, 'NIGHT', remHrs);
+                if (!shift) return null;
+                const check = checkShiftCompatibility(st, shift, dateStr, true);
+                if (!check.valid) return null;
+                if (usedHrs + shift.hours > st.weeklyHours + 4.0) return null;
+                // Prefer NIGHT_ONLY staff or those who worked Night yesterday (to group night blocks of 2-3)
+                const workedNightYesterday = state.assignments[`${st.id}_${addDaysISO(dateStr, -1)}`] === shift.code ? 1 : 0;
+                const isNightOnly = st.flex.pattern === 'NIGHT_ONLY' ? 1 : 0;
+                return { st, shift, remHrs, score: isNightOnly * 50 + workedNightYesterday * 30 + remHrs };
+              })
+              .filter(Boolean)
+              .sort((a, b) => b.score - a.score);
+
+            if (candidates.length === 0) break; // No valid core staff left for this night
+            const chosen = candidates[0];
+            state.assignments[`${chosen.st.id}_${dateStr}`] = chosen.shift.code;
+            shiftsAssignedCount++;
+            currentNightCore++;
+          }
+        }
+
+        // Step 2: Satisfy Daily Minimum Core DAY Coverage (e.g., 3 Core Staff per day)
+        for (let d = 0; d < 7; d++) {
+          const dateStr = addDaysISO(weekStart, d);
+          let currentDayCore = countDailyCoreCoverage(dateStr).dayCore;
+
+          while (currentDayCore < state.coverageRules.minDayCore) {
+            const candidates = state.staff
+              .filter(st => st.isCore && !state.assignments[`${st.id}_${dateStr}`])
+              .map(st => {
+                const usedHrs = getStaffWeekHours(st.id, wk);
+                const remHrs = st.weeklyHours - usedHrs;
+                const shift = choosePreferredShiftForStaff(st, 'DAY', remHrs);
+                if (!shift) return null;
+                const check = checkShiftCompatibility(st, shift, dateStr, true);
+                if (!check.valid) return null;
+                if (usedHrs + shift.hours > st.weeklyHours + 4.0) return null;
+                return { st, shift, remHrs };
+              })
+              .filter(Boolean)
+              .sort((a, b) => b.remHrs - a.remHrs);
+
+            if (candidates.length === 0) break;
+            const chosen = candidates[0];
+            state.assignments[`${chosen.st.id}_${dateStr}`] = chosen.shift.code;
+            shiftsAssignedCount++;
+            currentDayCore++;
+          }
+        }
+
+        // Step 3: Fill remaining contracted weekly hours for all staff (Core & Non-Core) across the week
+        state.staff.forEach(st => {
+          // Try days of week in balanced order so weekends & mid-week get even distribution
+          const dayOrder = [0, 1, 2, 3, 4, 5, 6].sort((a, b) => {
+            const covA = countDailyCoreCoverage(addDaysISO(weekStart, a)).totalStaff;
+            const covB = countDailyCoreCoverage(addDaysISO(weekStart, b)).totalStaff;
+            return covA - covB;
+          });
+
+          for (const d of dayOrder) {
+            const usedHrs = getStaffWeekHours(st.id, wk);
+            const remHrs = st.weeklyHours - usedHrs;
+            if (remHrs < 5.5) break; // Close enough to weekly contract target
+
+            const dateStr = addDaysISO(weekStart, d);
+            if (state.assignments[`${st.id}_${dateStr}`]) continue;
+
+            // Determine best shift category for this staff member
+            const preferredCat = st.flex.pattern === 'NIGHT_ONLY' ? 'NIGHT' : 'DAY';
+            let shift = choosePreferredShiftForStaff(st, preferredCat, remHrs);
+            if (!shift && st.flex.pattern === 'ALL') {
+              shift = choosePreferredShiftForStaff(st, 'NIGHT', remHrs);
+            }
+            if (!shift) continue;
+
+            if (usedHrs + shift.hours <= st.weeklyHours + 2.0) {
+              const check = checkShiftCompatibility(st, shift, dateStr, true);
+              if (check.valid) {
+                state.assignments[`${st.id}_${dateStr}`] = shift.code;
+                shiftsAssignedCount++;
+              }
+            }
+          }
+        });
+      }
+
+      return shiftsAssignedCount;
+    }
+
+    // Count Day Core & Night Core staff on a specific date
+    function countDailyCoreCoverage(dateStr) {
+      let dayCore = 0;
+      let nightCore = 0;
+      let supportCount = 0;
+      let totalStaff = 0;
+
+      state.staff.forEach(st => {
+        const code = state.assignments[`${st.id}_${dateStr}`];
+        if (!code) return;
+        const sh = getShiftByCode(code);
+        if (!sh) return;
+        totalStaff++;
+        if (sh.category === 'DAY' && st.isCore) dayCore++;
+        else if (sh.category === 'NIGHT' && st.isCore) nightCore++;
+        else supportCount++;
+      });
+
+      const dayOk = dayCore >= state.coverageRules.minDayCore;
+      const nightOk = nightCore >= state.coverageRules.minNightCore;
+
+      return {
+        dayCore,
+        nightCore,
+        supportCount,
+        totalStaff,
+        dayOk,
+        nightOk,
+        allOk: dayOk && nightOk
+      };
+    }
+
+    // =========================================================
+    // UI RENDERING FUNCTIONS
+    // =========================================================
+    function renderAll() {
+      // Sync top controls
+      document.getElementById('horizon-start-input').value = state.horizonStartDate;
+      document.getElementById('min-day-core-input').value = state.coverageRules.minDayCore;
+      document.getElementById('min-night-core-input').value = state.coverageRules.minNightCore;
+      document.getElementById('badge-staff-count').textContent = state.staff.length;
+      document.getElementById('badge-req-count').textContent = Object.keys(state.requests).length;
+
+      // Highlight active Block button
+      [0, 1, 2].forEach(b => {
+        const btn = document.getElementById(`block-btn-${b}`);
+        if (state.currentBlock === b) {
+          btn.className = 'px-3 py-1 text-xs font-bold rounded-md bg-nhs-blue text-white shadow-xs transition';
+        } else {
+          btn.className = 'px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:bg-slate-200 transition';
+        }
+      });
+
+      // Highlight active Week Filter button
+      ['all', 0, 1, 2, 3].forEach(w => {
+        const btn = document.getElementById(`wk-btn-${w}`);
+        if (String(state.weekFilter) === String(w)) {
+          btn.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-nhs-dark text-white shadow-xs transition';
+        } else {
+          btn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:bg-slate-200 transition';
+        }
+      });
+
+      renderBlockCoverageSummaryPill();
+      renderShiftLegendBar();
+      renderRosterGrid();
+      renderStaffTab();
+      renderRequestsTab();
+      renderShiftsTab();
+      renderReportsTab();
+    }
+
+    function renderBlockCoverageSummaryPill() {
+      const pill = document.getElementById('block-coverage-pill');
+      const blockStart = addDaysISO(state.horizonStartDate, state.currentBlock * 28);
+      let coveredDays = 0;
+      for (let i = 0; i < 28; i++) {
+        const cov = countDailyCoreCoverage(addDaysISO(blockStart, i));
+        if (cov.allOk) coveredDays++;
+      }
+      if (coveredDays === 28) {
+        pill.className = 'text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5';
+        pill.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600"></i> 28/28 Days Core Covered`;
+      } else {
+        const shortfall = 28 - coveredDays;
+        pill.className = 'text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1.5';
+        pill.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600"></i> ${coveredDays}/28 Days Covered (${shortfall} Shortfall)`;
+      }
+    }
+
+    function renderShiftLegendBar() {
+      const bar = document.getElementById('shift-legend-bar');
+      let html = `<span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">Shift Key:</span>`;
+      state.shifts.forEach(s => {
+        const th = COLOR_THEMES[s.color] || COLOR_THEMES.blue;
+        html += `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${th.bg} ${th.text} ${th.border}">
+            <strong>${s.code}</strong>
+            <span class="opacity-80 font-normal">${s.start}–${s.end} (${s.hours}h)</span>
+          </span>
+        `;
+      });
+      Object.values(LEAVE_TYPES).forEach(lv => {
+        html += `
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold border ${lv.bg} ${lv.text} ${lv.border}">
+            <strong>${lv.code}</strong>
+            <span class="opacity-80 font-normal">${lv.name}</span>
+          </span>
+        `;
+      });
+      bar.innerHTML = html;
+    }
+
+    // Determine visible dates in the Roster Grid based on currentBlock and weekFilter
+    function getVisibleRosterDates() {
+      const blockStartOffset = state.currentBlock * 28;
+      let startOffset = blockStartOffset;
+      let numDays = 28;
+      if (state.weekFilter !== 'all') {
+        const wkNum = Number(state.weekFilter);
+        startOffset = blockStartOffset + wkNum * 7;
+        numDays = 7;
+      }
+      const dates = [];
+      for (let i = 0; i < numDays; i++) {
+        dates.push(addDaysISO(state.horizonStartDate, startOffset + i));
+      }
+      return dates;
+    }
+
+    function renderRosterGrid() {
+      const dates = getVisibleRosterDates();
+      const thead = document.getElementById('roster-thead');
+      const tbody = document.getElementById('roster-tbody');
+      const tfoot = document.getElementById('roster-tfoot');
+
+      // 1. Build Header Row
+      let headHtml = `
+        <tr class="bg-slate-100 border-b border-slate-300 text-[11px] text-slate-600 uppercase">
+          <th class="sticky-col-1 bg-slate-100 py-3 px-3 min-w-[210px] border-r border-slate-200 font-bold">Staff Member & Flex</th>
+          <th class="sticky-col-2 bg-slate-100 py-3 px-2.5 min-w-[115px] border-r border-slate-300 text-center font-bold">Planned / Target</th>
+      `;
+
+      dates.forEach((dStr, idx) => {
+        const dt = parseISODate(dStr);
+        const dow = dt.getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        const isMonday = dow === 1;
+        const dayLabel = dt.toLocaleDateString('en-GB', { weekday: 'short' });
+        const dateNum = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        const weekNumberInHorizon = Math.floor((idx + (state.weekFilter === 'all' ? 0 : Number(state.weekFilter) * 7)) / 7) + 1 + state.currentBlock * 4;
+
+        headHtml += `
+          <th class="py-2 px-1.5 min-w-[62px] text-center border-r border-slate-200 ${isWeekend ? 'bg-slate-200/75 text-slate-800' : ''} ${isMonday ? 'border-l-2 border-l-nhs-blue' : ''}">
+            ${isMonday ? `<div class="text-[9px] font-bold text-nhs-blue tracking-tight">WK ${weekNumberInHorizon}</div>` : `<div class="text-[9px] text-transparent">.</div>`}
+            <div class="font-bold text-xs">${dayLabel}</div>
+            <div class="text-[10px] font-medium text-slate-500">${dateNum}</div>
+          </th>
+        `;
+      });
+      headHtml += `</tr>`;
+      thead.innerHTML = headHtml;
+
+      // 2. Build Staff Rows
+      let bodyHtml = '';
+      state.staff.forEach(st => {
+        // Compute hours across the visible window (either 4-week block or single filtered week)
+        const targetHours = state.weekFilter === 'all' ? st.weeklyHours * 4 : st.weeklyHours;
+        let plannedHours = 0;
+        dates.forEach(dStr => {
+          const req = state.requests[`${st.id}_${dStr}`];
+          if (req && LEAVE_TYPES[req.type]) {
+            plannedHours += LEAVE_TYPES[req.type].hours;
+          } else {
+            const code = state.assignments[`${st.id}_${dStr}`];
+            if (code) {
+              const sh = getShiftByCode(code);
+              if (sh) plannedHours += Number(sh.hours);
+            }
+          }
+        });
+
+        const diff = plannedHours - targetHours;
+        let hrsBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        if (Math.abs(diff) > 4) {
+          hrsBadgeClass = diff > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200';
+        }
+
+        bodyHtml += `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="sticky-col-1 bg-white py-2.5 px-3 border-r border-slate-200">
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-bold text-slate-800 truncate">${st.name}</span>
+                ${st.isCore
+                  ? `<span class="text-[10px] font-bold bg-blue-100 text-nhs-dark px-1.5 py-0.5 rounded" title="Core Safe-Staffing">CORE</span>`
+                  : `<span class="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">SUPP</span>`
+                }
+              </div>
+              <div class="text-[11px] text-slate-500 truncate">${st.role}</div>
+              ${st.flex.pattern !== 'ALL' || (st.flex.unavailableDays && st.flex.unavailableDays.length > 0)
+                ? `<div class="mt-0.5 text-[10px] text-indigo-700 font-medium flex items-center gap-1 truncate" title="${st.flex.note || ''}">
+                     <i class="fa-solid fa-sliders text-[9px]"></i> ${formatFlexShortSummary(st.flex)}
+                   </div>`
+                : ''
+              }
+            </td>
+
+            <td class="sticky-col-2 bg-white py-2 px-2 border-r border-slate-300 text-center">
+              <div class="inline-flex flex-col items-center px-2 py-1 rounded-lg border ${hrsBadgeClass}">
+                <span class="font-bold text-xs">${plannedHours.toFixed(1)}h <span class="font-normal opacity-75">/ ${targetHours.toFixed(1)}h</span></span>
+                <span class="text-[10px]">${st.weeklyHours}h/wk</span>
+              </div>
+            </td>
+        `;
+
+        dates.forEach(dStr => {
+          const dt = parseISODate(dStr);
+          const dow = dt.getDay();
+          const isWeekend = dow === 0 || dow === 6;
+          const isMonday = dow === 1;
+          const isFixedOffDay = st.flex.unavailableDays && st.flex.unavailableDays.includes(dow);
+
+          const req = state.requests[`${st.id}_${dStr}`];
+          const code = state.assignments[`${st.id}_${dStr}`];
+
+          let cellInner = '';
+          if (req && LEAVE_TYPES[req.type]) {
+            const lv = LEAVE_TYPES[req.type];
+            cellInner = `
+              <div class="w-full h-9 rounded-lg border ${lv.bg} ${lv.text} ${lv.border} flex flex-col items-center justify-center shadow-2xs cell-hover" title="${lv.name}: ${req.reason || 'Approved'}">
+                <span class="font-bold text-xs leading-none">${lv.code}</span>
+                <span class="text-[9px] opacity-75 leading-none mt-0.5">Leave</span>
+              </div>
+            `;
+          } else if (code) {
+            const sh = getShiftByCode(code);
+            if (sh) {
+              const th = COLOR_THEMES[sh.color] || COLOR_THEMES.blue;
+              const compat = checkShiftCompatibility(st, sh, dStr, true);
+              cellInner = `
+                <div class="relative w-full h-9 rounded-lg border ${th.bg} ${th.text} ${th.border} flex flex-col items-center justify-center shadow-2xs cell-hover" title="${sh.name} (${sh.start}-${sh.end}, ${sh.hours}h)${!compat.valid ? ' ⚠️ ' + compat.reasons.join(', ') : ''}">
+                  <span class="font-bold text-xs leading-none">${sh.code}</span>
+                  <span class="text-[9px] opacity-80 leading-none mt-0.5">${sh.hours}h</span>
+                  ${!compat.valid ? `<span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-white text-[9px] flex items-center justify-center font-bold">!</span>` : ''}
+                </div>
+              `;
+            }
+          } else if (isFixedOffDay) {
+            cellInner = `
+              <div class="w-full h-9 rounded-lg border border-dashed border-slate-300 bg-slate-100/80 text-slate-400 flex flex-col items-center justify-center text-[10px]" title="Flexible Working Agreement: Fixed Unavailable Weekday">
+                <span>FLEX</span>
+                <span class="text-[8px]">OFF</span>
+              </div>
+            `;
+          } else {
+            cellInner = `
+              <div class="w-full h-9 rounded-lg border border-transparent hover:border-slate-300 hover:bg-slate-100 flex items-center justify-center text-slate-300 hover:text-slate-500 transition">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+              </div>
+            `;
+          }
+
+          bodyHtml += `
+            <td onclick="openCellModal('${st.id}', '${dStr}')" class="p-1 border-r border-slate-200 cursor-pointer ${isWeekend ? 'bg-slate-50/90' : ''} ${isMonday ? 'border-l-2 border-l-nhs-blue/40' : ''}">
+              ${cellInner}
+            </td>
+          `;
+        });
+
+        bodyHtml += `</tr>`;
+      });
+      tbody.innerHTML = bodyHtml;
+
+      // 3. Build Footer Core Coverage Rows (Day Core & Night Core)
+      let footHtml = `
+        <tr class="bg-slate-100 border-t-2 border-slate-300 text-xs font-semibold">
+          <td class="sticky-col-1 bg-slate-100 py-2.5 px-3 border-r border-slate-200 text-slate-800">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-sun text-amber-500"></i>
+              <span>Day Core Coverage</span>
+            </div>
+            <div class="text-[10px] font-normal text-slate-500">Target: Min ${state.coverageRules.minDayCore} Core Staff</div>
+          </td>
+          <td class="sticky-col-2 bg-slate-100 py-2 px-2 border-r border-slate-300 text-center text-[11px] text-slate-600">
+            Daily Check
+          </td>
+      `;
+
+      dates.forEach(dStr => {
+        const cov = countDailyCoreCoverage(dStr);
+        const badgeCls = cov.dayOk
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+          : 'bg-red-100 text-red-800 border-red-300 animate-pulse';
+        footHtml += `
+          <td class="p-1.5 text-center border-r border-slate-200">
+            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls}" title="Day Core Staff: ${cov.dayCore} / Min ${state.coverageRules.minDayCore}">
+              ${cov.dayCore}/${state.coverageRules.minDayCore}
+            </div>
+          </td>
+        `;
+      });
+      footHtml += `</tr>`;
+
+      footHtml += `
+        <tr class="bg-slate-100 border-t border-slate-200 text-xs font-semibold">
+          <td class="sticky-col-1 bg-slate-100 py-2.5 px-3 border-r border-slate-200 text-slate-800">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-moon text-indigo-600"></i>
+              <span>Night Core Coverage</span>
+            </div>
+            <div class="text-[10px] font-normal text-slate-500">Target: Min ${state.coverageRules.minNightCore} Core Staff</div>
+          </td>
+          <td class="sticky-col-2 bg-slate-100 py-2 px-2 border-r border-slate-300 text-center text-[11px] text-slate-600">
+            Nightly Check
+          </td>
+      `;
+
+      dates.forEach(dStr => {
+        const cov = countDailyCoreCoverage(dStr);
+        const badgeCls = cov.nightOk
+          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+          : 'bg-red-100 text-red-800 border-red-300 animate-pulse';
+        footHtml += `
+          <td class="p-1.5 text-center border-r border-slate-200">
+            <div class="py-1 rounded-md border text-[11px] font-bold ${badgeCls}" title="Night Core Staff: ${cov.nightCore} / Min ${state.coverageRules.minNightCore}">
+              ${cov.nightCore}/${state.coverageRules.minNightCore}
+            </div>
+          </td>
+        `;
+      });
+      footHtml += `</tr>`;
+      tfoot.innerHTML = footHtml;
+    }
+
+    function formatFlexShortSummary(flex) {
+      const parts = [];
+      const patMap = {
+        DAY_ONLY: 'Days Only',
+        NIGHT_ONLY: 'Nights Only',
+        SHORT_SHIFTS_ONLY: 'Short Shifts',
+        LONG_SHIFTS_ONLY: 'Long Shifts',
+        EARLY_ONLY: 'Early Only'
+      };
+      if (flex.pattern && flex.pattern !== 'ALL') parts.push(patMap[flex.pattern] || flex.pattern);
+      if (flex.unavailableDays && flex.unavailableDays.length > 0) {
+        const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        parts.push('No ' + flex.unavailableDays.map(d => dNames[d]).join('/'));
+      }
+      return parts.join(' • ') || 'Standard';
+    }
+
+    // =========================================================
+    // TAB 2: STAFF & FLEXIBLE WORKING RENDERING
+    // =========================================================
+    function renderStaffTab() {
+      const grid = document.getElementById('staff-cards-grid');
+      const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      grid.innerHTML = state.staff.map(st => {
+        const offDaysText = (st.flex.unavailableDays && st.flex.unavailableDays.length > 0)
+          ? st.flex.unavailableDays.map(d => dNames[d]).join(', ')
+          : 'None';
+
+        return `
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-between space-y-3 hover:border-nhs-blue/50 transition">
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <h3 class="font-bold text-slate-800 text-sm">${st.name}</h3>
+                  <p class="text-xs text-slate-500">${st.role}</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${st.isCore ? 'bg-blue-100 text-nhs-dark' : 'bg-slate-100 text-slate-700'}">
+                  ${st.isCore ? 'Core Staff' : 'Support Staff'}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-3 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <div>
+                  <span class="text-slate-500">Contract:</span>
+                  <strong class="text-slate-800 ml-1">${st.weeklyHours} hrs/wk</strong>
+                </div>
+                <div class="h-3 w-px bg-slate-300"></div>
+                <div>
+                  <span class="text-slate-500">4-Wk Target:</span>
+                  <strong class="text-slate-800 ml-1">${(st.weeklyHours * 4).toFixed(1)} hrs</strong>
+                </div>
+              </div>
+
+              <!-- Flexible Working Box -->
+              <div class="bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 text-xs space-y-1">
+                <div class="font-bold text-indigo-950 flex items-center gap-1.5">
+                  <i class="fa-solid fa-handshake-angle text-indigo-600"></i>
+                  <span>Flexible Working Agreement</span>
+                </div>
+                <div class="text-slate-700"><span class="font-medium text-slate-500">Allowed Shifts:</span> ${st.flex.pattern.replace(/_/g, ' ')}</div>
+                <div class="text-slate-700"><span class="font-medium text-slate-500">Unavailable Days:</span> ${offDaysText}</div>
+                <div class="text-slate-700"><span class="font-medium text-slate-500">Max Consecutive:</span> ${st.flex.maxConsecutive || 4} shifts</div>
+                ${st.flex.note ? `<div class="text-[11px] italic text-indigo-800 pt-1">"${st.flex.note}"</div>` : ''}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button onclick="openStaffModal('${st.id}')" class="text-xs font-semibold text-nhs-blue hover:bg-blue-50 px-3 py-1.5 rounded-lg transition">
+                <i class="fa-regular fa-pen-to-square mr-1"></i>Edit Agreement
+              </button>
+              <button onclick="deleteStaffMember('${st.id}')" class="text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // TAB 3: DAY OFF & LEAVE REQUESTS RENDERING
+    // =========================================================
+    function renderRequestsTab() {
+      const staffSelect = document.getElementById('req-staff-id');
+      staffSelect.innerHTML = state.staff.map(s => `<option value="${s.id}">${s.name} (${s.role.split('(')[0].trim()})</option>`).join('');
+
+      const reqStartInput = document.getElementById('req-start-date');
+      const reqEndInput = document.getElementById('req-end-date');
+      if (!reqStartInput.value) {
+        reqStartInput.value = state.horizonStartDate;
+        reqEndInput.value = state.horizonStartDate;
+      }
+
+      const reqList = Object.values(state.requests).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      document.getElementById('req-total-pill').textContent = `${reqList.length} logged request${reqList.length === 1 ? '' : 's'}`;
+
+      const tbody = document.getElementById('requests-table-body');
+      if (reqList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">No Day Off or Leave requests logged yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = reqList.map(r => {
+        const st = state.staff.find(s => s.id === r.staffId);
+        const lv = LEAVE_TYPES[r.type] || LEAVE_TYPES.DO;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-semibold text-slate-800">${formatDisplayDate(r.dateStr)} <span class="text-slate-400 font-normal">(${r.dateStr})</span></td>
+            <td class="py-2.5 px-3 font-medium">${st ? st.name : 'Removed Staff'}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded-md text-xs font-bold border ${lv.bg} ${lv.text} ${lv.border}">${lv.code} - ${lv.name}</span>
+            </td>
+            <td class="py-2.5 px-3 font-semibold text-slate-600">${lv.hours}h</td>
+            <td class="py-2.5 px-3 text-slate-600">${r.reason || '—'}</td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="removeLeaveRequest('${r.staffId}', '${r.dateStr}')" class="text-red-600 hover:bg-red-50 px-2.5 py-1 rounded-md text-xs font-semibold">
+                <i class="fa-regular fa-trash-can mr-1"></i>Delete
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // TAB 4: SHIFT PATTERNS CRUD RENDERING
+    // =========================================================
+    function renderShiftsTab() {
+      const container = document.getElementById('shift-patterns-list');
+      container.innerHTML = state.shifts.map(s => {
+        const th = COLOR_THEMES[s.color] || COLOR_THEMES.blue;
+        return `
+          <div class="border border-slate-200 rounded-xl p-3.5 flex items-center justify-between bg-slate-50/50 hover:bg-white transition">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl border ${th.bg} ${th.text} ${th.border} flex flex-col items-center justify-center font-bold">
+                <span class="text-sm leading-none">${s.code}</span>
+                <span class="text-[9px] font-normal opacity-80 mt-0.5">${s.hours}h</span>
+              </div>
+              <div>
+                <div class="font-bold text-slate-800 text-sm">${s.name}</div>
+                <div class="text-xs text-slate-500">${s.start} – ${s.end} • <strong>${s.hours} paid hrs</strong></div>
+                <span class="inline-block mt-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-700">${s.category} COVERAGE</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="editShiftPattern('${s.code}')" class="p-2 text-nhs-blue hover:bg-blue-50 rounded-lg text-xs font-semibold" title="Edit Shift">
+                <i class="fa-regular fa-pen-to-square"></i>
+              </button>
+              <button onclick="deleteShiftPattern('${s.code}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold" title="Delete Shift">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================
+    // TAB 5: REPORTS & ANALYTICS RENDERING
+    // =========================================================
+    function renderReportsTab() {
+      const blockStart = addDaysISO(state.horizonStartDate, state.currentBlock * 28);
+      const blockEnd = addDaysISO(blockStart, 27);
+      document.getElementById('report-block-title').textContent =
+        `Staff Hours & Shift Breakdown — Block ${state.currentBlock + 1} (${formatDisplayDate(blockStart)} to ${formatDisplayDate(blockEnd)})`;
+
+      // Calculate KPIs for current 4-week block
+      let totalContractedBlock = 0;
+      let totalPlannedBlock = 0;
+      let totalDayShifts = 0;
+      let totalNightShifts = 0;
+      let totalLeaveDays = 0;
+
+      const staffRowsHtml = state.staff.map(st => {
+        const wkHrs = [0, 1, 2, 3].map(w => getStaffWeekHours(st.id, state.currentBlock * 4 + w));
+        const blockPlanned = wkHrs.reduce((a, b) => a + b, 0);
+        const blockTarget = st.weeklyHours * 4;
+        const variance = blockPlanned - blockTarget;
+
+        totalContractedBlock += blockTarget;
+        totalPlannedBlock += blockPlanned;
+
+        let dCount = 0, nCount = 0, lCount = 0, violations = 0;
+        for (let i = 0; i < 28; i++) {
+          const dStr = addDaysISO(blockStart, i);
+          if (state.requests[`${st.id}_${dStr}`]) lCount++;
+          const code = state.assignments[`${st.id}_${dStr}`];
+          if (code) {
+            const sh = getShiftByCode(code);
+            if (sh) {
+              if (sh.category === 'NIGHT') nCount++;
+              else dCount++;
+              if (!checkShiftCompatibility(st, sh, dStr, true).valid) violations++;
+            }
+          }
+        }
+        totalDayShifts += dCount;
+        totalNightShifts += nCount;
+        totalLeaveDays += lCount;
+
+        const varClass = Math.abs(variance) <= 4
+          ? 'text-emerald-700 bg-emerald-50'
+          : (variance > 0 ? 'text-amber-800 bg-amber-50' : 'text-blue-700 bg-blue-50');
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-bold text-slate-800">${st.name}</td>
+            <td class="py-2.5 px-3 text-slate-600">
+              ${st.role.split('(')[0]}
+              ${st.isCore ? `<span class="ml-1 text-[10px] font-bold bg-blue-100 text-nhs-dark px-1.5 py-0.5 rounded">CORE</span>` : ''}
+            </td>
+            <td class="py-2.5 px-3 text-center font-medium">${wkHrs[0].toFixed(1)}h</td>
+            <td class="py-2.5 px-3 text-center font-medium">${wkHrs[1].toFixed(1)}h</td>
+            <td class="py-2.5 px-3 text-center font-medium">${wkHrs[2].toFixed(1)}h</td>
+            <td class="py-2.5 px-3 text-center font-medium">${wkHrs[3].toFixed(1)}h</td>
+            <td class="py-2.5 px-3 text-center font-bold">${blockPlanned.toFixed(1)}h / ${blockTarget.toFixed(1)}h</td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2 py-0.5 rounded font-bold ${varClass}">${variance >= 0 ? '+' : ''}${variance.toFixed(1)}h</span>
+            </td>
+            <td class="py-2.5 px-3 text-center font-medium">
+              <span class="text-blue-700">${dCount} Day</span> •
+              <span class="text-indigo-700">${nCount} Night</span> •
+              <span class="text-rose-700">${lCount} Leave</span>
+            </td>
+            <td class="py-2.5 px-3">
+              ${violations === 0
+                ? `<span class="text-emerald-700 font-semibold flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 100% Compliant</span>`
+                : `<span class="text-amber-700 font-semibold flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> ${violations} Override(s)</span>`
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('report-staff-tbody').innerHTML = staffRowsHtml;
+
+      // Daily Coverage Grid & KPI computation
+      let fullyCoveredDays = 0;
+      let covGridHtml = '';
+      for (let i = 0; i < 28; i++) {
+        const dStr = addDaysISO(blockStart, i);
+        const cov = countDailyCoreCoverage(dStr);
+        if (cov.allOk) fullyCoveredDays++;
+
+        covGridHtml += `
+          <div class="p-2.5 rounded-xl border ${cov.allOk ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50 border-red-300'} flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800">${formatDisplayDate(dStr)}</span>
+              ${cov.allOk
+                ? `<i class="fa-solid fa-circle-check text-emerald-600"></i>`
+                : `<i class="fa-solid fa-circle-exclamation text-red-600"></i>`
+              }
+            </div>
+            <div class="mt-1.5 flex items-center justify-between text-[11px]">
+              <span class="${cov.dayOk ? 'text-slate-600' : 'text-red-700 font-bold'}">☀️ Day Core: ${cov.dayCore}/${state.coverageRules.minDayCore}</span>
+              <span class="${cov.nightOk ? 'text-slate-600' : 'text-red-700 font-bold'}">🌙 Night Core: ${cov.nightCore}/${state.coverageRules.minNightCore}</span>
+            </div>
+          </div>
+        `;
+      }
+      document.getElementById('report-coverage-grid').innerHTML = covGridHtml;
+
+      // Render KPI Summary Cards
+      const utilPct = totalContractedBlock > 0 ? ((totalPlannedBlock / totalContractedBlock) * 100).toFixed(1) : '0.0';
+      const covPct = ((fullyCoveredDays / 28) * 100).toFixed(0);
+
+      document.getElementById('report-kpi-cards').innerHTML = `
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold uppercase text-slate-400">4-Week Contract Utilization</div>
+          <div class="text-2xl font-bold text-slate-800 mt-1">${utilPct}%</div>
+          <div class="text-xs text-slate-500 mt-1">${totalPlannedBlock.toFixed(1)}h planned of ${totalContractedBlock.toFixed(1)}h contracted</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold uppercase text-slate-400">Safe Core Coverage Rate</div>
+          <div class="text-2xl font-bold ${fullyCoveredDays === 28 ? 'text-emerald-600' : 'text-amber-600'} mt-1">${covPct}% (${fullyCoveredDays}/28 Days)</div>
+          <div class="text-xs text-slate-500 mt-1">Min ${state.coverageRules.minDayCore} Day Core & ${state.coverageRules.minNightCore} Night Core</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold uppercase text-slate-400">Planned Shifts in Block</div>
+          <div class="text-2xl font-bold text-nhs-blue mt-1">${totalDayShifts + totalNightShifts} Shifts</div>
+          <div class="text-xs text-slate-500 mt-1">${totalDayShifts} Day/Support shifts • ${totalNightShifts} Night shifts</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="text-xs font-semibold uppercase text-slate-400">Protected Leave & Days Off</div>
+          <div class="text-2xl font-bold text-rose-600 mt-1">${totalLeaveDays} Days</div>
+          <div class="text-xs text-slate-500 mt-1">100% honoured in shift suggestions</div>
+        </div>
+      `;
+    }
+
+    // =========================================================
+    // USER INTERACTION HANDLERS
+    // =========================================================
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      ['roster', 'staff', 'requests', 'shifts', 'reports'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabId) {
+          el.classList.remove('hidden');
+          btn.className = 'tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg flex items-center gap-2 whitespace-nowrap bg-slate-50 text-nhs-dark shadow-sm';
+        } else {
+          el.classList.add('hidden');
+          btn.className = 'tab-btn px-4 py-2.5 text-xs sm:text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap text-blue-100 hover:bg-white/10';
+        }
+      });
+      renderAll();
+    }
+
+    function selectBlock(blockIdx) {
+      state.currentBlock = blockIdx;
+      saveState();
+      renderAll();
+    }
+
+    function selectWeekFilter(filterVal) {
+      state.weekFilter = filterVal;
+      saveState();
+      renderAll();
+    }
+
+    function updateHorizonStartDate(newDateStr) {
+      if (!newDateStr) return;
+      state.horizonStartDate = newDateStr;
+      saveState();
+      renderAll();
+      showToast('Horizon start date updated', 'info');
+    }
+
+    function updateCoverageRules() {
+      const dayMin = Math.max(1, Number(document.getElementById('min-day-core-input').value) || 3);
+      const nightMin = Math.max(1, Number(document.getElementById('min-night-core-input').value) || 2);
+      state.coverageRules.minDayCore = dayMin;
+      state.coverageRules.minNightCore = nightMin;
+      saveState();
+      renderAll();
+      showToast(`Minimum Core Coverage set to ${dayMin} Day / ${nightMin} Night`, 'success');
+    }
+
+    // Cell Modal Functions
+    function openCellModal(staffId, dateStr) {
+      activeCellContext = { staffId, dateStr };
+      const st = state.staff.find(s => s.id === staffId);
+      if (!st) return;
+
+      document.getElementById('cell-modal-title').textContent = `${st.name}`;
+      document.getElementById('cell-modal-subtitle').textContent = `${formatDisplayDate(dateStr)} (${dateStr}) • ${st.role}`;
+
+      // Show Flexible Working Banner
+      const banner = document.getElementById('cell-modal-flex-banner');
+      banner.innerHTML = `
+        <div class="font-bold text-slate-700 flex items-center justify-between">
+          <span><i class="fa-solid fa-handshake-angle text-nhs-blue mr-1"></i>Flexible Working Agreement</span>
+          <span class="text-[11px] bg-blue-100 text-nhs-dark px-2 py-0.5 rounded font-semibold">${st.weeklyHours}h/wk contract</span>
+        </div>
+        <div class="text-slate-600">${formatFlexShortSummary(st.flex)} • Max ${st.flex.maxConsecutive || 4} consecutive shifts</div>
+        ${st.flex.note ? `<div class="text-[11px] italic text-slate-500">"${st.flex.note}"</div>` : ''}
+      `;
+
+      // Render Shift Options with live compatibility feedback
+      const currentCode = state.assignments[`${staffId}_${dateStr}`];
+      const optsContainer = document.getElementById('cell-modal-shift-options');
+      optsContainer.innerHTML = state.shifts.map(sh => {
+        const compat = checkShiftCompatibility(st, sh, dateStr, true);
+        const th = COLOR_THEMES[sh.color] || COLOR_THEMES.blue;
+        const isSelected = currentCode === sh.code;
+
+        return `
+          <button onclick="assignCellEntry('${sh.code}', false)" class="w-full text-left p-2.5 rounded-xl border ${isSelected ? 'ring-2 ring-nhs-blue border-nhs-blue' : 'border-slate-200'} hover:bg-slate-50 flex items-center justify-between transition">
+            <div class="flex items-center gap-2.5">
+              <span class="w-9 h-9 rounded-lg border ${th.bg} ${th.text} ${th.border} font-bold text-xs flex items-center justify-center">${sh.code}</span>
+              <div>
+                <div class="font-bold text-slate-800 text-xs">${sh.name} (${sh.hours}h)</div>
+                <div class="text-[11px] text-slate-500">${sh.start}–${sh.end} • ${sh.category}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              ${compat.valid
+                ? `<span class="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full"><i class="fa-solid fa-check mr-1"></i>Compatible</span>`
+                : `<div class="text-[10px] font-semibold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md max-w-[160px] text-right">${compat.reasons[0]}</div>`
+              }
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      const modal = document.getElementById('cell-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeCellModal() {
+      const modal = document.getElementById('cell-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      activeCellContext = null;
+    }
+
+    function assignCellEntry(code, isLeave) {
+      if (!activeCellContext) return;
+      const { staffId, dateStr } = activeCellContext;
+      const key = `${staffId}_${dateStr}`;
+
+      if (isLeave) {
+        delete state.assignments[key];
+        state.requests[key] = {
+          staffId,
+          dateStr,
+          type: code,
+          reason: 'Assigned on Roster Grid'
+        };
+        showToast(`Assigned ${code} (${LEAVE_TYPES[code].name})`, 'info');
+      } else {
+        delete state.requests[key];
+        state.assignments[key] = code;
+        showToast(`Assigned shift ${code}`, 'success');
+      }
+
+      saveState();
+      closeCellModal();
+      renderAll();
+    }
+
+    function clearCellEntry() {
+      if (!activeCellContext) return;
+      const { staffId, dateStr } = activeCellContext;
+      const key = `${staffId}_${dateStr}`;
+      delete state.assignments[key];
+      delete state.requests[key];
+      saveState();
+      closeCellModal();
+      renderAll();
+      showToast('Cleared roster cell', 'info');
+    }
+
+    // Staff Modal Handlers
+    function openStaffModal(staffId = null) {
+      const modal = document.getElementById('staff-modal');
+      const dayCbs = document.querySelectorAll('.flex-day-cb');
+      dayCbs.forEach(cb => (cb.checked = false));
+
+      if (staffId) {
+        const st = state.staff.find(s => s.id === staffId);
+        if (!st) return;
+        document.getElementById('staff-modal-title').textContent = `Edit ${st.name}`;
+        document.getElementById('staff-id-input').value = st.id;
+        document.getElementById('staff-name-input').value = st.name;
+        document.getElementById('staff-role-input').value = st.role;
+        document.getElementById('staff-hours-input').value = st.weeklyHours;
+        document.getElementById('staff-core-input').checked = st.isCore;
+        document.getElementById('staff-flex-pattern').value = st.flex.pattern || 'ALL';
+        document.getElementById('staff-flex-maxconsec').value = st.flex.maxConsecutive || 4;
+        document.getElementById('staff-flex-note').value = st.flex.note || '';
+        (st.flex.unavailableDays || []).forEach(d => {
+          const cb = Array.from(dayCbs).find(c => Number(c.value) === Number(d));
+          if (cb) cb.checked = true;
+        });
+      } else {
+        document.getElementById('staff-modal-title').textContent = 'Add Hospital Staff Member';
+        document.getElementById('staff-id-input').value = '';
+        document.getElementById('staff-name-input').value = '';
+        document.getElementById('staff-role-input').value = 'Registered Staff Nurse (Band 5)';
+        document.getElementById('staff-hours-input').value = '37.5';
+        document.getElementById('staff-core-input').checked = true;
+        document.getElementById('staff-flex-pattern').value = 'ALL';
+        document.getElementById('staff-flex-maxconsec').value = '4';
+        document.getElementById('staff-flex-note').value = '';
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeStaffModal() {
+      const modal = document.getElementById('staff-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function handleSaveStaff(e) {
+      e.preventDefault();
+      const id = document.getElementById('staff-id-input').value || 'st-' + Date.now();
+      const name = document.getElementById('staff-name-input').value.trim();
+      const role = document.getElementById('staff-role-input').value;
+      const weeklyHours = Number(document.getElementById('staff-hours-input').value) || 37.5;
+      const isCore = document.getElementById('staff-core-input').checked;
+      const pattern = document.getElementById('staff-flex-pattern').value;
+      const maxConsecutive = Number(document.getElementById('staff-flex-maxconsec').value) || 4;
+      const note = document.getElementById('staff-flex-note').value.trim();
+
+      const unavailableDays = Array.from(document.querySelectorAll('.flex-day-cb'))
+        .filter(cb => cb.checked)
+        .map(cb => Number(cb.value));
+
+      const staffObj = {
+        id,
+        name,
+        role,
+        weeklyHours,
+        isCore,
+        flex: { pattern, unavailableDays, maxConsecutive, note }
+      };
+
+      const existingIdx = state.staff.findIndex(s => s.id === id);
+      if (existingIdx >= 0) {
+        state.staff[existingIdx] = staffObj;
+        showToast(`Updated ${name}'s profile & flexible working agreement`, 'success');
+      } else {
+        state.staff.push(staffObj);
+        showToast(`Added ${name} to hospital ward team`, 'success');
+      }
+
+      saveState();
+      closeStaffModal();
+      renderAll();
+    }
+
+    function deleteStaffMember(staffId) {
+      const st = state.staff.find(s => s.id === staffId);
+      if (!st) return;
+      openConfirmModal(
+        `Remove ${st.name}?`,
+        `This will remove ${st.name} and their planned shifts from the roster.`,
+        () => {
+          state.staff = state.staff.filter(s => s.id !== staffId);
+          Object.keys(state.assignments).forEach(k => { if (k.startsWith(staffId + '_')) delete state.assignments[k]; });
+          Object.keys(state.requests).forEach(k => { if (k.startsWith(staffId + '_')) delete state.requests[k]; });
+          saveState();
+          renderAll();
+          showToast(`Removed ${st.name}`, 'info');
+        }
+      );
+    }
+
+    // Leave Request Handlers
+    function handleAddLeaveRequest(e) {
+      e.preventDefault();
+      const staffId = document.getElementById('req-staff-id').value;
+      const startStr = document.getElementById('req-start-date').value;
+      const endStr = document.getElementById('req-end-date').value;
+      const type = document.getElementById('req-type').value;
+      const reason = document.getElementById('req-Reason').value.trim() || 'Requested Leave';
+
+      if (endStr < startStr) {
+        showToast('End date cannot be earlier than start date', 'error');
+        return;
+      }
+
+      let curr = startStr;
+      let count = 0;
+      while (curr <= endStr && count < 28) {
+        const key = `${staffId}_${curr}`;
+        delete state.assignments[key]; // Remove conflicting working shift
+        state.requests[key] = { staffId, dateStr: curr, type, reason };
+        curr = addDaysISO(curr, 1);
+        count++;
+      }
+
+      document.getElementById('req-Reason').value = '';
+      saveState();
+      renderAll();
+      showToast(`Added ${count} day(s) of ${type} request`, 'success');
+    }
+
+    function removeLeaveRequest(staffId, dateStr) {
+      delete state.requests[`${staffId}_${dateStr}`];
+      saveState();
+      renderAll();
+      showToast('Removed Day Off / Leave request', 'info');
+    }
+
+    // Shift Pattern CRUD Handlers
+    function handleSaveShiftPattern(e) {
+      e.preventDefault();
+      const origCode = document.getElementById('shift-edit-original-code').value;
+      const code = document.getElementById('shift-code').value.trim().toUpperCase();
+      const name = document.getElementById('shift-name').value.trim();
+      const start = document.getElementById('shift-start').value;
+      const end = document.getElementById('shift-end').value;
+      const hours = Number(document.getElementById('shift-hours').value) || 7.5;
+      const category = document.getElementById('shift-category').value;
+      const color = document.getElementById('shift-color').value;
+
+      const newShift = { code, name, start, end, hours, category, color };
+
+      if (origCode) {
+        const idx = state.shifts.findIndex(s => s.code === origCode);
+        if (idx >= 0) state.shifts[idx] = newShift;
+        // Update existing assignments if code changed
+        if (origCode !== code) {
+          Object.keys(state.assignments).forEach(k => {
+            if (state.assignments[k] === origCode) state.assignments[k] = code;
+          });
+        }
+        showToast(`Updated shift pattern ${code}`, 'success');
+      } else {
+        const existingIdx = state.shifts.findIndex(s => s.code === code);
+        if (existingIdx >= 0) {
+          state.shifts[existingIdx] = newShift;
+          showToast(`Updated shift pattern ${code}`, 'success');
+        } else {
+          state.shifts.push(newShift);
+          showToast(`Created new shift pattern ${code}`, 'success');
+        }
+      }
+
+      resetShiftForm();
+      saveState();
+      renderAll();
+    }
+
+    function editShiftPattern(code) {
+      const sh = getShiftByCode(code);
+      if (!sh) return;
+      document.getElementById('shift-form-title').textContent = `Editing Shift: ${sh.code}`;
+      document.getElementById('shift-edit-original-code').value = sh.code;
+      document.getElementById('shift-code').value = sh.code;
+      document.getElementById('shift-name').value = sh.name;
+      document.getElementById('shift-start').value = sh.start;
+      document.getElementById('shift-end').value = sh.end;
+      document.getElementById('shift-hours').value = sh.hours;
+      document.getElementById('shift-category').value = sh.category;
+      document.getElementById('shift-color').value = sh.color;
+    }
+
+    function resetShiftForm() {
+      document.getElementById('shift-form-title').textContent = 'Create / Update Shift Pattern';
+      document.getElementById('shift-edit-original-code').value = '';
+      document.getElementById('shift-code').value = '';
+      document.getElementById('shift-name').value = '';
+      document.getElementById('shift-start').value = '07:00';
+      document.getElementById('shift-end').value = '15:00';
+      document.getElementById('shift-hours').value = '7.5';
+      document.getElementById('shift-category').value = 'DAY';
+      document.getElementById('shift-color').value = 'blue';
+    }
+
+    function deleteShiftPattern(code) {
+      if (state.shifts.length <= 2) {
+        showToast('At least 2 shift definitions must remain', 'error');
+        return;
+      }
+      openConfirmModal(
+        `Delete Shift Pattern "${code}"?`,
+        `Any cells currently assigned "${code}" on the roster will be cleared.`,
+        () => {
+          state.shifts = state.shifts.filter(s => s.code !== code);
+          Object.keys(state.assignments).forEach(k => {
+            if (state.assignments[k] === code) delete state.assignments[k];
+          });
+          saveState();
+          renderAll();
+          showToast(`Deleted shift pattern ${code}`, 'info');
+        }
+      );
+    }
+
+    // Auto-Suggest Modal Controls
+    function openAutoScheduleModal() {
+      document.getElementById('auto-modal-day-min').textContent = state.coverageRules.minDayCore;
+      document.getElementById('auto-modal-night-min').textContent = state.coverageRules.minNightCore;
+      const modal = document.getElementById('autoschedule-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAutoScheduleModal() {
+      const modal = document.getElementById('autoschedule-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function runAutoSuggestEngine() {
+      const scope = document.querySelector('input[name="auto-scope"]:checked').value;
+      const overwrite = document.getElementById('auto-overwrite-existing').checked;
+
+      let startWk = 0, endWk = 7;
+      if (scope === '2months') {
+        startWk = 0;
+        endWk = 7; // Weeks 1 to 8 (2 months in advance)
+      } else if (scope === 'currentBlock') {
+        startWk = state.currentBlock * 4;
+        endWk = startWk + 3;
+      } else if (scope === 'full3months') {
+        startWk = 0;
+        endWk = 11; // All 12 weeks
+      }
+
+      const count = autoSuggestWeeks(startWk, endWk, overwrite);
+      saveState();
+      closeAutoScheduleModal();
+      renderAll();
+      showToast(`Auto-Suggested ${count} shifts across Weeks ${startWk + 1}–${endWk + 1}!`, 'success');
+    }
+
+    function clearCurrentBlockShifts() {
+      const bNum = state.currentBlock + 1;
+      openConfirmModal(
+        `Clear Block ${bNum} Working Shifts?`,
+        `This clears assigned shifts in Block ${bNum} (Weeks ${state.currentBlock * 4 + 1}–${state.currentBlock * 4 + 4}). Logged Day Off & Leave requests will be preserved.`,
+        () => {
+          const blockStart = addDaysISO(state.horizonStartDate, state.currentBlock * 28);
+          for (let i = 0; i < 28; i++) {
+            const dStr = addDaysISO(blockStart, i);
+            state.staff.forEach(st => {
+              delete state.assignments[`${st.id}_${dStr}`];
+            });
+          }
+          saveState();
+          renderAll();
+          showToast(`Cleared working shifts in Block ${bNum}`, 'info');
+        }
+      );
+    }
+
+    // =========================================================
+    // MULTI-SHEET EXCEL WORKBOOK EXPORT (.XLSX VIA SHEETJS)
+    // =========================================================
+    function exportToExcelWorkbook() {
+      if (typeof XLSX === 'undefined') {
+        showToast('Excel library is still loading, please try again', 'error');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      // Generate sheets for each 4-week block (Block 1, Block 2, Block 3)
+      for (let b = 0; b < 3; b++) {
+        const blockStart = addDaysISO(state.horizonStartDate, b * 28);
+        const dates = [];
+        for (let i = 0; i < 28; i++) dates.push(addDaysISO(blockStart, i));
+
+        const headerRow = [
+          'Staff Name',
+          'Role / Grade',
+          'Core Staff',
+          'Contracted Wk Hrs',
+          '4-Wk Target Hrs',
+          '4-Wk Planned Hrs',
+          ...dates.map(d => `${formatDisplayDate(d)} (${d})`)
+        ];
+
+        const rows = [headerRow];
+
+        state.staff.forEach(st => {
+          let planned = 0;
+          const cellValues = dates.map(dStr => {
+            const req = state.requests[`${st.id}_${dStr}`];
+            if (req && LEAVE_TYPES[req.type]) {
+              planned += LEAVE_TYPES[req.type].hours;
+              return req.type;
+            }
+            const code = state.assignments[`${st.id}_${dStr}`];
+            if (code) {
+              const sh = getShiftByCode(code);
+              if (sh) planned += Number(sh.hours);
+              return code;
+            }
+            return '';
+          });
+
+          rows.push([
+            st.name,
+            st.role,
+            st.isCore ? 'YES' : 'NO',
+            st.weeklyHours,
+            st.weeklyHours * 4,
+            planned,
+            ...cellValues
+          ]);
+        });
+
+        // Add Daily Core Coverage rows at bottom of roster sheet
+        rows.push([]);
+        rows.push([
+          'DAY CORE STAFF COUNT',
+          `Min Target: ${state.coverageRules.minDayCore}`,
+          '', '', '', '',
+          ...dates.map(d => countDailyCoreCoverage(d).dayCore)
+        ]);
+        rows.push([
+          'NIGHT CORE STAFF COUNT',
+          `Min Target: ${state.coverageRules.minNightCore}`,
+          '', '', '', '',
+          ...dates.map(d => countDailyCoreCoverage(d).nightCore)
+        ]);
+        rows.push([
+          'COVERAGE STATUS',
+          '', '', '', '', '',
+          ...dates.map(d => countDailyCoreCoverage(d).allOk ? 'OK' : 'SHORTFALL')
+        ]);
+
+        const wsBlock = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, wsBlock, `Block ${b + 1} (Wks ${b * 4 + 1}-${b * 4 + 4})`);
+      }
+
+      // Sheet 4: Staff & Flexible Working Agreements
+      const dNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const staffSheetRows = [
+        ['Staff ID', 'Full Name', 'Role / Band', 'Contracted Weekly Hours', 'Core Staff', 'Flex Shift Restriction', 'Unavailable Weekdays', 'Max Consecutive Shifts', 'Flexible Working Notes']
+      ];
+      state.staff.forEach(st => {
+        staffSheetRows.push([
+          st.id,
+          st.name,
+          st.role,
+          st.weeklyHours,
+          st.isCore ? 'Yes' : 'No',
+          st.flex.pattern,
+          (st.flex.unavailableDays || []).map(d => dNames[d]).join(', ') || 'None',
+          st.flex.maxConsecutive || 4,
+          st.flex.note || ''
+        ]);
+      });
+      const wsStaff = XLSX.utils.aoa_to_sheet(staffSheetRows);
+      XLSX.utils.book_append_sheet(wb, wsStaff, 'Staff & Flex Agreements');
+
+      // Sheet 5: Hours & Coverage Summary Report (Across all 12 Weeks)
+      const reportRows = [
+        ['Staff Name', 'Role', 'Weekly Contract (h)', '12-Wk Target (h)', 'Wk 1', 'Wk 2', 'Wk 3', 'Wk 4', 'Wk 5', 'Wk 6', 'Wk 7', 'Wk 8', 'Wk 9', 'Wk 10', 'Wk 11', 'Wk 12', '12-Wk Total Planned (h)', 'Variance (h)']
+      ];
+      state.staff.forEach(st => {
+        const wkHours = Array.from({ length: 12 }, (_, w) => getStaffWeekHours(st.id, w));
+        const total12 = wkHours.reduce((a, b) => a + b, 0);
+        const target12 = st.weeklyHours * 12;
+        reportRows.push([
+          st.name,
+          st.role,
+          st.weeklyHours,
+          target12,
+          ...wkHours,
+          total12,
+          Number((total12 - target12).toFixed(1))
+        ]);
+      });
+      const wsReport = XLSX.utils.aoa_to_sheet(reportRows);
+      XLSX.utils.book_append_sheet(wb, wsReport, '12-Week Hours Report');
+
+      // Sheet 6: Shift Definitions & Leave Requests
+      const defRows = [
+        ['SHIFT DEFINITIONS'],
+        ['Shift Code', 'Shift Name', 'Start Time', 'End Time', 'Paid Duration (Hrs)', 'Coverage Category'],
+        ...state.shifts.map(s => [s.code, s.name, s.start, s.end, s.hours, s.category]),
+        [],
+        ['DAY OFF & LEAVE REQUESTS'],
+        ['Date', 'Staff Member', 'Leave Code', 'Leave Type', 'Credited Hours', 'Reason / Notes']
+      ];
+      Object.values(state.requests)
+        .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
+        .forEach(r => {
+          const st = state.staff.find(s => s.id === r.staffId);
+          const lv = LEAVE_TYPES[r.type] || LEAVE_TYPES.DO;
+          defRows.push([r.dateStr, st ? st.name : r.staffId, r.type, lv.name, lv.hours, r.reason || '']);
+        });
+      const wsDefs = XLSX.utils.aoa_to_sheet(defRows);
+      XLSX.utils.book_append_sheet(wb, wsDefs, 'Shifts & Leave Requests');
+
+      const fileName = `Hospital_Shift_Roster_${state.horizonStartDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      showToast(`Exported multi-sheet Excel workbook: ${fileName}`, 'success');
+    }
+
+    // JSON Backup / Restore & Demo Reset
+    function exportJsonBackup() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(state, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute('href', dataStr);
+      a.setAttribute('download', `mediroster_backup_${state.horizonStartDate}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('Downloaded JSON backup file', 'success');
+    }
+
+    function importJsonBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed && parsed.staff && parsed.shifts) {
+            state = parsed;
+            saveState();
+            renderAll();
+            showToast('Restored roster data from JSON backup', 'success');
+          } else {
+            showToast('Invalid backup JSON file format', 'error');
+          }
+        } catch (err) {
+          showToast('Error parsing JSON file', 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function confirmResetDemo() {
+      openConfirmModal(
+        'Reset Hospital Demo Data?',
+        'This will restore the default hospital team, flexible working agreements, and regenerate an 8-week (2-month) suggested roster.',
+        () => {
+          localStorage.removeItem(STORAGE_KEY);
+          createDefaultHospitalData();
+          renderAll();
+          showToast('Reset to fresh hospital demo data', 'success');
+        }
+      );
+    }
+
+    // Custom Confirmation Modal Helpers
+    let pendingConfirmCallback = null;
+    function openConfirmModal(title, msg, onConfirm) {
+      document.getElementById('confirm-modal-title').textContent = title;
+      document.getElementById('confirm-modal-msg').textContent = msg;
+      pendingConfirmCallback = onConfirm;
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingConfirmCallback = null;
+    }
+
+    document.getElementById('confirm-modal-action-btn').addEventListener('click', () => {
+      if (pendingConfirmCallback) pendingConfirmCallback();
+      closeConfirmModal();
+    });
+
+    // Toast Notification Helper
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-700 text-white border-emerald-500',
+        error:   'bg-red-700 text-white border-red-500',
+        info:    'bg-nhs-dark text-white border-blue-400'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        error:   'fa-circle-exclamation',
+        info:    'fa-circle-info'
+      };
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-sm"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // Initialize Application on Load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
